@@ -1,0 +1,15 @@
+*.pyc
+__pycache__
+*.o
+*.obj
+*..iobj
+*.pdb
+*.ipdb
+*.exp
+*.ilk
+.vs
+.vscode
+/script/tmp/*
+/src/**/release/*
+/src/**/debug/*
+/util/bin/**
