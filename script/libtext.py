@@ -116,7 +116,7 @@ def count_ftexts_glphy(ftexts):
     glphy_map = count_text_glphy(all_text.getvalue())
     return all_text.getvalue(), glphy_map
 
-def count_ftextsdir_glphy(ftext_files):
+def count_ftextsfiles_glphy(ftext_files):
     ftexts = []
     for file in ftext_files:
         _, ftexts2 = bintext.read_format_text(file, True)

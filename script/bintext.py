@@ -22,6 +22,7 @@ v0.4.3 change the structure, write_format_text, read_format_text added line_text
 v0.4.4 adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
 v0.4.5 fix the padding problem, --padding bytes 32 00
 v0.5 add verify text, shift addr function
+v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
 """
 
 # lib functions
@@ -110,10 +111,10 @@ def read_format_text(inpath, only_text=False):
     else: lines_text = inpath
 
     if only_text == True: # This is used for merge_text
-        re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
-        re_line2 = re.compile(r"^●(.+?)●[ ](.*)")
+        re_line1 = re.compile(r"^○(.*?)○[ ](.*)")
+        re_line2 = re.compile(r"^●(.*?)●[ ](.*)")
         for line in lines_text:
-            line = line.strip("\n")
+            line = line.strip('\r').strip("\n")
             m = re_line1.match(line)
             if m is not None:
                 ftexts1.append({'addr':0,'size':0,'text': m.group(2)})
@@ -121,10 +122,10 @@ def read_format_text(inpath, only_text=False):
             if m is not None:
                 ftexts2.append({'addr':0,'size':0,'text': m.group(2)})
     else:
-        re_line1 = re.compile(r"^○(\d*)\|(.*)\|(.*)○[ ](.*)")
-        re_line2 = re.compile(r"^●(\d*)\|(.*)\|(.*)●[ ](.*)")
+        re_line1 = re.compile(r"^○(\d*)\|(.*?)\|(.*?)○[ ](.*?)")
+        re_line2 = re.compile(r"^●(\d*)\|(.*?)\|(.*?)●[ ](.*?)")
         for line in lines_text:
-            line = line.strip("\n")
+            line = line.strip('\r').strip("\n")
             m = re_line1.match(line)
             if m is not None:
                 ftexts1.append({'addr':int(m.group(2),16),
@@ -464,6 +465,7 @@ def patch_ftext_file(ftextpath, binpath, outpath="out.bin",
     encoding = 'utf-8',  padding_bytes=b"\x00", tblpath="", can_longer=False):
     """
     import the text in textpath to insertpath, make the imported file as outpath
+    ftexts should always using encoding utf-8
     :param encoding: the encoding of the insertpath, or custom tbl's if not None
     """
     _, ftexts2 = read_format_text(ftextpath)
@@ -554,10 +556,10 @@ def main():
         help="patch this path by the inpath text, binpath")
     
     #  encoding method
-    enc_group = parser.add_mutually_exclusive_group()
-    enc_group.add_argument('-e', '--encoding', 
-        type=str, default='utf-8')
-    enc_group.add_argument('--tbl', type=str, default="", 
+    parser.add_argument('-e', '--encoding', 
+        type=str, default='utf-8', 
+        help="if using tbl, this encoding is for tbl")
+    parser.add_argument('--tbl', type=str, default="", 
         help="custom charcode table")
    
     # other configure
