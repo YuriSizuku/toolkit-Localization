@@ -23,6 +23,7 @@ v0.2 add extract_glphys from font image,
 v0.2.1 align_tbl, manualy align tbl for glphys 
        by the adding offset(+-) at some position  
 v0.2.2 replace_char, to replace useless char to new char in tbl
+v0.2.3 fix some problem of encoding, img to tile font alpha value
 """
 
 def generate_gb2312_tbl(outpath=r"", only_kanji=False, replace_map={}):
@@ -224,6 +225,7 @@ def load_tbl(inpath, encoding='utf-8'):
         re_line = re.compile(r'([0-9|A-F|a-f]*)=(\S|\s)$')
         while True:
             line = fp.readline()
+            line = line.replace('\r','').replace('\n','')
             if not line : break
             m = re_line.match(line)
             if m is not None:
@@ -241,7 +243,7 @@ def load_tbl(inpath, encoding='utf-8'):
     return tbl
 
 def save_tbl(tbl, outpath="out.tbl", encoding='utf-8'):
-    with codecs.open(outpath, "w", encoding='utf-8') as fp:
+    with codecs.open(outpath, "w", encoding=encoding) as fp:
         for charcode, c in tbl:
             charcode_str = ""
             for d in charcode:
@@ -256,7 +258,7 @@ def tilefont2bgra(data, char_height, char_width, bpp, n_row=64, n_char=0, f_deco
         if bpp==4:
             a = 255
             d = struct.unpack('<B', data[start:start+1])[0]
-            if idx > start:  d >>= 4
+            if idx <= start:  d >>= 4
             else: d &= 0b00001111
             r = g = b = round(d*255/15)
         elif bpp==8:
@@ -286,29 +288,31 @@ def tilefont2bgra(data, char_height, char_width, bpp, n_row=64, n_char=0, f_deco
 
     return bgra
 
-def bgra2tilefont(bgra, char_height, char_width, bpp, n_row=64, n_char=0, f_encode=  None):
+def bgra2tilefont(bgra, char_height, char_width, bpp, n_row=64, n_char=0, f_encode=None):
     def f_encode_default(data, bgra, bpp, idx, idx_x, idx_y):
         if bgra.shape[2] == 4:
-            b, g , r, _ = bgra[idx_y][idx_x].tolist()
+            b, g , r, a = bgra[idx_y][idx_x].tolist()
         else: 
             b, g, r = bgra[idx_y][idx_x].tolist()
-            # a = 255
+            a = 255
 
         start = int(idx)
         if bpp==4:
-            d = round((r+b+g)/3*15/255)
+            d = round((r+b+g)*a/255/3*15/255)
             if idx <= start:
                 data[start] = (data[start] & 0b00001111) + (d<<4)
             else:
                 data[start] = (data[start] & 0b11110000) + d
         elif bpp==8:
-            struct.pack('<B', data[start:start+1], round((r+b+g)/3))
+            d = round(a*(r+b+g)/3/255)
+            struct.pack('<B', data[start:start+1], d)
         else:
+            d = None
             print("Invalid bpp value!")
-            return None
+        return d
 
     height, width, _ = bgra.shape
-    n = (height/char_height) * (width/char_width) 
+    n = (height//char_height) * (width//char_width) 
     if n_char != 0 and n_char < n: n = n_char
     size = math.ceil(n*bpp/8*char_height*char_width) 
     data = bytearray(size)
@@ -356,7 +360,7 @@ def tilefont2gray(data, char_height, char_width, bpp=8, n_row=64, n_char=0, f_de
 
     return gray
 
-def gray2tilefont(gray, char_height, char_width, bpp=8, n_row=64, n_char=0, f_encode=  None):
+def gray2tilefont(gray, char_height, char_width, bpp=8, n_row=64, n_char=0, f_encode=None):
     def f_encode_default(data, gray, bpp, idx, idx_x, idx_y):
         start = int(idx)
         if bpp==8:
@@ -488,7 +492,7 @@ def build_picturefont(ttfpath, tblpath, char_width, char_height, n_row=64,
     img = np.zeros((height, width, 4), dtype=np.uint8)
     print("to build picture %dX%d with %d charactors..."%(width, height, n))
     
-    ptpxmap = {8:6, 9:7, 16:12, 18:13.5, 24:18, 32:24, 48:36}
+    ptpxmap = {8:6, 9:7, 16:12, 18:14, 24:18, 32:24, 48:36}
     if pt==0: pt=ptpxmap[char_height]
     font = ImageFont.truetype(ttfpath, pt)
     imgpil = Image.fromarray(img)

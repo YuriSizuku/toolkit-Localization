@@ -4,10 +4,10 @@ import re
 import codecs
 import glob
 from io import StringIO
-if os.path.exists("binary_text.py"):
-    import binary_text
+if os.path.exists("bintext.py"):
+    import bintext
 else:
-    import zzbinary_text as binary_text
+    import zzbintext as bintext
     
 """
 libtext.py, by devseed
@@ -119,7 +119,7 @@ def count_ftexts_glphy(ftexts):
 def count_ftextsdir_glphy(ftext_files):
     ftexts = []
     for file in ftext_files:
-        _, ftexts2 = binary_text.read_format_text(file, True)
+        _, ftexts2 = bintext.read_format_text(file, True)
         ftexts.extend(ftexts2)
     return count_ftexts_glphy(ftexts)
 
@@ -136,7 +136,7 @@ def write_format_iter(ftexts1, ftexts2, filename, *, num_width=5, addr_width=6, 
         fstrfile = "# filename=\"{filename}\" n1={n1:d} n2={n2:d}\n"
         lines_text.append(fstrfile.format(filename=filename, n1=n1, n2=n2))
             
-    line_texts = binary_text.write_format_text("", ftexts1, ftexts2, 
+    line_texts = bintext.write_format_text("", ftexts1, ftexts2, 
                  num_width=num_width, addr_width=addr_width, size_width=size_width)
     lines_text.extend(line_texts)    
     return lines_text
@@ -176,12 +176,12 @@ def read_format_multi(inpath, only_text=False):
                 start = i
                 filename = m.group(2)
                 continue
-            ftexts1, ftexts2 = binary_text.read_format_text(lines_text[start:i], only_text=False)
+            ftexts1, ftexts2 = bintext.read_format_text(lines_text[start:i], only_text=False)
             file_ftexts.append( {'filename' : filename, 'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
             filename = m.group(2)
             start = i
 
-    ftexts1, ftexts2 = binary_text.read_format_text(lines_text[start:len(lines_text)], only_text=False)
+    ftexts1, ftexts2 = bintext.read_format_text(lines_text[start:len(lines_text)], only_text=False)
     file_ftexts.append( {'filename' : filename, 'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
     
     return file_ftexts
