@@ -111,10 +111,10 @@ def read_format_text(inpath, only_text=False):
     else: lines_text = inpath
 
     if only_text == True: # This is used for merge_text
-        re_line1 = re.compile(r"^○(.*?)○[ ](.*)")
-        re_line2 = re.compile(r"^●(.*?)●[ ](.*)")
+        re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
+        re_line2 = re.compile(r"^●(.+?)●[ ](.*)")
         for line in lines_text:
-            line = line.strip('\r').strip("\n")
+            line = line.strip("\n").strip('\r')
             m = re_line1.match(line)
             if m is not None:
                 ftexts1.append({'addr':0,'size':0,'text': m.group(2)})
@@ -122,10 +122,10 @@ def read_format_text(inpath, only_text=False):
             if m is not None:
                 ftexts2.append({'addr':0,'size':0,'text': m.group(2)})
     else:
-        re_line1 = re.compile(r"^○(\d*)\|(.*?)\|(.*?)○[ ](.*?)")
-        re_line2 = re.compile(r"^●(\d*)\|(.*?)\|(.*?)●[ ](.*?)")
+        re_line1 = re.compile(r"^○(\d*)\|(.+?)\|(.+?)○[ ](.*)")
+        re_line2 = re.compile(r"^●(\d*)\|(.+?)\|(.+?)●[ ](.*)")
         for line in lines_text:
-            line = line.strip('\r').strip("\n")
+            line = line.strip("\n").strip('\r')
             m = re_line1.match(line)
             if m is not None:
                 ftexts1.append({'addr':int(m.group(2),16),
