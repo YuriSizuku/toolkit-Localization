@@ -13,6 +13,7 @@
     v0.3, add winpe_memloadlibrary, winpe_memGetprocaddress, winpe_memFreelibrary
     v0.3.1, fix the stdcall function name by .def, load memory moudule aligned with 0x1000(x86), 0x10000(x64)
     v0.3.2, x64 memory load support, winpe_findkernel32, winpe_finmodule by asm
+    v0.3.3, add ordinal support in winpe_membindiat, add win_membindtls
 */
 
 #ifndef _WINPE_H
@@ -226,6 +227,14 @@ WINPEDEF WINPE_EXPORT
 inline size_t winpe_membindiat(void *mempe, 
     PFN_LoadLibraryA pfnLoadLibraryA, 
     PFN_GetProcAddress pfnGetProcAddress);
+
+/*
+  exec the tls callbacks for the mempe, before dll oep load
+  reason is for function PIMAGE_TLS_CALLBACK
+    return tls count
+*/
+WINPEDEF WINPE_EXPORT 
+inline size_t winpe_membindtls(void *mempe, DWORD reason);
 
 /*
   find the iat addres, for call [iat]
@@ -496,6 +505,7 @@ inline void* STDCALL winpe_memLoadLibraryEx(void *mempe,
         return NULL;
     if(!winpe_membindiat((void*)imagebase, 
         pfnLoadLibraryA, pfnGetProcAddress)) return NULL;
+    winpe_membindtls(mempe, DLL_PROCESS_ATTACH);
     PFN_DllMain pfnDllMain = (PFN_DllMain)
         (imagebase + winpe_oepval((void*)imagebase, 0));
     pfnDllMain((HINSTANCE)imagebase, DLL_PROCESS_ATTACH, NULL);
@@ -525,6 +535,7 @@ inline BOOL STDCALL winpe_memFreeLibraryEx(void *mempe,
         pfnGetProcAddress(hmod_kernel32, name_VirtualFree);
     PFN_DllMain pfnDllMain = (PFN_DllMain)
         (mempe + winpe_oepval(mempe, 0));
+    winpe_membindtls(mempe, DLL_PROCESS_DETACH);
     pfnDllMain((HINSTANCE)mempe, DLL_PROCESS_DETACH, NULL);
     return pfnVirtualFree(mempe, 0, MEM_FREE);
 }
@@ -625,7 +636,7 @@ inline PROC winpe_findgetprocaddress()
     // return (PROC)GetProcAddress;
     HMODULE hmod_kernel32 = (HMODULE)winpe_findkernel32();
     char name_GetProcAddress[] = {'G', 'e', 't', 'P', 'r', 'o', 'c', 'A', 'd', 'd', 'r', 'e', 's', 's', '\0'};
-    return winpe_memGetProcAddress(hmod_kernel32, name_GetProcAddress);
+    return (PROC)winpe_memfindexp(hmod_kernel32, name_GetProcAddress);
 }
 
 WINPEDEF WINPE_EXPORT
@@ -781,6 +792,8 @@ inline size_t winpe_membindiat(void *mempe,
     PIMAGE_THUNK_DATA pOftThunk = NULL;
     LPCSTR pDllName = NULL;
     PIMAGE_IMPORT_BY_NAME pImpByName = NULL;
+    size_t funcva = 0;
+    char *funcname = NULL;
 
     // origin GetProcAddress will crash at InitializeSListHead 
     if(!pfnLoadLibraryA) pfnLoadLibraryA = 
@@ -802,21 +815,72 @@ inline size_t winpe_membindiat(void *mempe,
         for (int j=0; pFtThunk[j].u1.Function 
             &&  pOftThunk[j].u1.Function; j++) 
         {
-            // supposed iat has no ordinal only
-            pImpByName=(PIMAGE_IMPORT_BY_NAME)(mempe +
-                pOftThunk[j].u1.AddressOfData);
-            size_t addr = (size_t)pfnGetProcAddress(
-                (HMODULE)dllbase, pImpByName->Name);
-            // addr = (size_t)winpe_memforwardexp((void*)dllbase, 
-            //     addr-dllbase, pfnLoadLibraryA, pfnGetProcAddress);
-            if(!addr) continue;
-            pFtThunk[j].u1.Function = addr;
-            assert(addr == (size_t)GetProcAddress(
-                (HMODULE)dllbase, pImpByName->Name));
+            size_t _addr = (size_t)(mempe + pOftThunk[j].u1.AddressOfData);
+            if(sizeof(size_t)>4) // x64
+            {
+                if((_addr>>63) == 1)
+                {
+                    funcname = (char *)(_addr & 0x000000000000ffff);
+                }
+                else
+                {
+                    pImpByName=(PIMAGE_IMPORT_BY_NAME)_addr;
+                    funcname = pImpByName->Name;
+                }
+            }
+            else
+            {
+                if(((size_t)pImpByName>>31) == 1)
+                {
+                    funcname = (char *)(_addr & 0x0000ffff);
+                }
+                else
+                {
+                    pImpByName=(PIMAGE_IMPORT_BY_NAME)_addr;
+                    funcname = pImpByName->Name;
+                }
+            }
+
+            funcva = (size_t)pfnGetProcAddress(
+                (HMODULE)dllbase, funcname);
+            if(!funcva) continue;
+            pFtThunk[j].u1.Function = funcva;
+            assert(funcva == (size_t)GetProcAddress(
+                (HMODULE)dllbase, funcname));
             iat_count++;
         }
     }
     return iat_count;
+}
+
+WINPEDEF WINPE_EXPORT 
+inline size_t winpe_membindtls(void *mempe, DWORD reson)
+{
+    PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
+    PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
+        ((void*)mempe + pDosHeader->e_lfanew);
+    PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
+    PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
+    PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
+    PIMAGE_DATA_DIRECTORY pTlsDirectory = 
+        &pDataDirectory[IMAGE_DIRECTORY_ENTRY_TLS];
+    if(!pTlsDirectory->VirtualAddress) return 0;
+
+    size_t tls_count = 0;
+    PIMAGE_TLS_DIRECTORY pTlsEntry = (PIMAGE_TLS_DIRECTORY)
+        (mempe + pTlsDirectory->VirtualAddress);
+    PIMAGE_TLS_CALLBACK *tlscb= (PIMAGE_TLS_CALLBACK*)
+        pTlsEntry->AddressOfCallBacks;
+    if(tlscb)
+    {
+        while(*tlscb)
+        {
+            (*tlscb)(mempe, DLL_PROCESS_ATTACH, NULL);
+            tlscb++;
+            tls_count++;
+        }
+    }
+    return tls_count;
 }
 
 WINPEDEF WINPE_EXPORT
