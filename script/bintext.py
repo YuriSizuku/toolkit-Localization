@@ -586,7 +586,7 @@ def main():
         replace_map = dict()
         for t in args.replace_map:
             _t = t.split(':')
-            if len(_t)<=0: continue
+            if len(_t)<2: continue
             replace_map[_t[0]] = _t[1]
         patch_ftext_file(args.inpath, args.patch, args.outpath, 
             encoding=args.encoding, 
