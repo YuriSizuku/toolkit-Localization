@@ -1,9 +1,11 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.1, developed by devseed
+    v0.5.2, developed by devseed
 """
 
+from dataclasses import replace
+from operator import methodcaller
 import struct
 import re
 import codecs
@@ -78,7 +80,7 @@ def write_format_text(outpath, ftexts1, ftexts2, *,
             line_texts.append(fstr2.format(num=i,addr=t2['addr'],size=t2['size'],text=t2['text']))
 
     if outpath != "":
-        with codecs.open(outpath, "w", 'utf-8') as fp:
+        with codecs.open(outpath, 'w', 'utf-8') as fp:
             fp.writelines(line_texts)
     return line_texts 
 
@@ -130,7 +132,7 @@ def load_tbl(inpath, encoding='utf-8'):
     with codecs.open(inpath, 'r', encoding=encoding) as fp:
         re_line = re.compile(r'([0-9|A-F|a-f]*)=(\S|\s)$')
         while True:
-            line = fp.readline()
+            line = fp.readline().rstrip('\n').rstrip('\r')
             if not line : break
             m = re_line.match(line)
             if m is not None:
@@ -324,19 +326,25 @@ def extract_multichar(data, encoding, min_len=2):
     return addrs, texts_data
 
 def patch_text(data, ftexts, 
-    encoding = 'utf-8', padding_bytes=b'\x00', tbl=None, can_longer=False, jump_table=None):
+    encoding = 'utf-8', padding_bytes=b'\x00', tbl=None,
+    can_longer=False, jump_table=None, replace_map = None):
     """
     :param data: bytearray
     :param encoding: the encoding of the original binary file if not using tbl
-    :jump_table: a dict array with {'addr':, 'addr_new':, 'jumpto':, 'jumpto_new':} 
+    :jump_table: a dict array with {'addr':, 'addr_new':, 'jumpto':, 'jumpto_new':}
+    :replace_map: a dict for replaceing char, {'a': 'b'} 
     """
     offset = 0
     for _, ftext in enumerate(ftexts):
         addr, size, text = ftext['addr'], ftext['size'], ftext['text'] 
         data[addr+offset:addr+offset+size] = bytearray(size)
+
         text = text.replace(r'[\n]', '\n')
         text = text.replace(r'[\r]', '\r')
-       
+        if replace_map is not None:
+            for k, v in replace_map.items():
+                text = text.replace(k, v)
+
         if tbl: buf = encode_tbl(text, tbl)
         else: buf = text.encode(encoding)
         
@@ -447,7 +455,8 @@ def shift_ftext_file(ftextpath, n, outpath):
     print("shift text done! in " +  outpath)
             
 def patch_ftext_file(ftextpath, binpath, outpath="out.bin", 
-    encoding = 'utf-8',  padding_bytes=b"\x00", tblpath="", can_longer=False):
+    encoding = 'utf-8',  padding_bytes=b"\x00", tblpath="", 
+    can_longer=False, replace_map=None):
     """
     import the text in textpath to insertpath, make the imported file as outpath
     ftexts should always using encoding utf-8
@@ -458,7 +467,9 @@ def patch_ftext_file(ftextpath, binpath, outpath="out.bin",
     with open(binpath, "rb") as fp:
         data = bytearray(fp.read())
         tbl = None if tblpath=="" else load_tbl(tblpath, encoding=encoding)
-        data = patch_text(data, ftexts2, encoding=encoding, padding_bytes=padding_bytes, tbl=tbl, can_longer=can_longer)
+        data = patch_text(data, ftexts2, encoding=encoding,            
+            padding_bytes=padding_bytes, tbl=tbl, 
+            can_longer=can_longer, replace_map=replace_map)
     
     with open(outpath, "wb") as fp:
         fp.write(data)
@@ -550,8 +561,11 @@ def main():
     # other configure
     parser.add_argument('--min_len', type=int, default=2)
     parser.add_argument('--padding_bytes', 
-        type=int, default=[0x20],nargs='+', 
+        type=int, default=[0x20], nargs='+',
         help="padding char if import text shorter than origin")
+    parser.add_argument('--replace_map', 
+        type=str, default=[""], nargs='+', 
+        help="replace the char in 'a:b' 'c:d' format")
     parser.add_argument('--has_cjk', action='store_true', 
         help="extract the text with cjk only")
     parser.add_argument('--can_longer', action='store_true', 
@@ -569,10 +583,16 @@ def main():
     elif args.merge:
         merge_ftext_file(args.inpath, args.merge, args.outpath)
     elif args.patch:
+        replace_map = dict()
+        for t in args.replace_map:
+            _t = t.split(':')
+            if len(_t)<=0: continue
+            replace_map[_t[0]] = _t[1]
         patch_ftext_file(args.inpath, args.patch, args.outpath, 
             encoding=args.encoding, 
             padding_bytes=bytes(args.padding_bytes), 
-            tblpath=args.tbl, can_longer=args.can_longer)
+            tblpath=args.tbl, can_longer=args.can_longer,
+            replace_map=replace_map)
     else:
         extract_ftext_file(args.inpath, args.outpath, 
             encoding=args.encoding, tblpath=args.tbl, 
@@ -599,4 +619,5 @@ v0.4.4 adding padding char if text shorter than origin (in order with \x0d, \x0a
 v0.4.5 fix the padding problem, --padding bytes 32 00
 v0.5 add verify text, shift addr function
 v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
+v0.5.2 add replace_map in patch_text
 """

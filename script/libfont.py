@@ -212,8 +212,7 @@ def load_tbl(inpath, encoding='utf-8'):
     with codecs.open(inpath, 'r', encoding=encoding) as fp:
         re_line = re.compile(r'([0-9|A-F|a-f]*)=(\S|\s)$')
         while True:
-            line = fp.readline()
-            line = line.replace('\r','').replace('\n','')
+            line = fp.readline().rstrip('\n').rstrip('\r')
             if not line : break
             m = re_line.match(line)
             if m is not None:
