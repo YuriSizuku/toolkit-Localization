@@ -1,29 +1,14 @@
  # -*- coding: utf-8 -*-
+"""
+A binary text tool for text exporting and importing, checking
+    v0.5.1, developed by devseed
+"""
+
 import struct
 import re
 import codecs
 import argparse
 from io import StringIO, BytesIO
-
-"""
-bintext.py, by devseed
-A binary text tool for text exporting and importing, checking 
-
-v0.1 initial version with utf-8 support
-v0.2 added tbl and decodetbl, encodetbl, check with tbl
-v0.3 added extractsjis, extract by tbl or arbitary extract implement, patch using tbl
-v0.3.1 added punctuation cjk, added try in decode
-v0.3.2 fixed patched error when short than origin 
-v0.3.3 change the merge function with matching "●(.*)●[ ](.*)"
-v0.4 add read_format_text, write_format_text, optimize the code structure
-v0.4.1 fixed merge_text in this optimized the code structure
-v0.4.2 remove useless callbacks, adjust default len, add arbitary encoding, add jump_table rebuild, 
-v0.4.3 change the structure, write_format_text, read_format_text added line_texts mode
-v0.4.4 adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
-v0.4.5 fix the padding problem, --padding bytes 32 00
-v0.5 add verify text, shift addr function
-v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
-"""
 
 # lib functions
 def isCjk(c): 
@@ -597,3 +582,21 @@ if __name__ == "__main__":
     debug()
     main()
     pass
+
+"""
+history:
+v0.1 initial version with utf-8 support
+v0.2 added tbl and decodetbl, encodetbl, check with tbl
+v0.3 added extractsjis, extract by tbl or arbitary extract implement, patch using tbl
+v0.3.1 added punctuation cjk, added try in decode
+v0.3.2 fixed patched error when short than origin 
+v0.3.3 change the merge function with matching "●(.*)●[ ](.*)"
+v0.4 add read_format_text, write_format_text, optimize the code structure
+v0.4.1 fixed merge_text in this optimized the code structure
+v0.4.2 remove useless callbacks, adjust default len, add arbitary encoding, add jump_table rebuild, 
+v0.4.3 change the structure, write_format_text, read_format_text added line_texts mode
+v0.4.4 adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
+v0.4.5 fix the padding problem, --padding bytes 32 00
+v0.5 add verify text, shift addr function
+v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
+"""

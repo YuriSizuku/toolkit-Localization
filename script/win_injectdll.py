@@ -1,11 +1,6 @@
 """
-    modify windows pe with dll injected for hooking
-    v0.2 developed by devseed
-
-    history
-    v0.1 injectdll by adding iat entry
-    v0.2 use codecave to dynamiclly LoadLibraryA,
-         to avoid windows defender assuming this as virus
+modify windows pe with dll injected for hooking
+    v0.2, developed by devseed
 """
 
 import sys
@@ -144,3 +139,10 @@ if __name__ == "__main__":
     #debug()
     main()
     pass
+
+"""
+history:
+v0.1 injectdll by adding iat entry
+v0.2 use codecave to dynamiclly LoadLibraryA,
+        to avoid windows defender assuming this as virus
+"""

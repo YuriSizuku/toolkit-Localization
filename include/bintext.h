@@ -1,13 +1,9 @@
 /*
-    bintext.h, 
-    Some functions of bintext.py written by C 
-    to support embelled game reading this universal binary text format 
+Some functions of bintext.py written by C 
+to support embelled game reading this universal binary text format 
     v0.2 developed by devseed
-
-    history 
-    v0.1 initial version
-    v0.2 change to single file, and add BINTEXTDEF BINTEXTDEF_EXPORT
 */
+
 #ifndef _BINTEXT_H
 #define _BINTEXT_H
 #include <stdint.h>
@@ -564,3 +560,9 @@ void bintext_free_ffiles(PFFILES pffiles)
     free(pffiles);
 }
 #endif
+
+/*
+history 
+v0.1 initial version
+v0.2 change to single file, and add BINTEXTDEF BINTEXTDEF_EXPORT
+*/

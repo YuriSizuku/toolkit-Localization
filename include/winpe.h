@@ -1,19 +1,8 @@
 /*
-  winpe.h, by devseed, v0.3.2
-  for parsing windows pe structure, adjust realoc addrs, or iat
-  most functions are single by inline all parts, 
-  can be also used as shellcode
-
-  history:
-    v0.1, initial version, with load pe in memory align
-    V0.1.2, adjust declear name, load pe iat
-    v0.2, add append section, findiat function
-    v0.2.2, add function winpe_memfindexp
-    v0.2.5, inline basic functions, better for shellcode
-    v0.3, add winpe_memloadlibrary, winpe_memGetprocaddress, winpe_memFreelibrary
-    v0.3.1, fix the stdcall function name by .def, load memory moudule aligned with 0x1000(x86), 0x10000(x64)
-    v0.3.2, x64 memory load support, winpe_findkernel32, winpe_finmodule by asm
-    v0.3.3, add ordinal support in winpe_membindiat, add win_membindtls
+This tool is for parsing windows pe structure, adjust realoc addrs, or iat.
+Most functions are independent by inline all parts, 
+so that this can also be used as shellcode
+    v0.3.2, developed by devseed 
 */
 
 #ifndef _WINPE_H
@@ -1121,3 +1110,16 @@ inline size_t winpe_appendsecth(void *pe,
 
 #endif
 #endif
+
+/*
+history:
+v0.1, initial version, with load pe in memory align
+V0.1.2, adjust declear name, load pe iat
+v0.2, add append section, findiat function
+v0.2.2, add function winpe_memfindexp
+v0.2.5, inline basic functions, better for shellcode
+v0.3, add winpe_memloadlibrary, winpe_memGetprocaddress, winpe_memFreelibrary
+v0.3.1, fix the stdcall function name by .def, load memory moudule aligned with 0x1000(x86), 0x10000(x64)
+v0.3.2, x64 memory load support, winpe_findkernel32, winpe_finmodule by asm
+v0.3.3, add ordinal support in winpe_membindiat, add win_membindtls
+*/

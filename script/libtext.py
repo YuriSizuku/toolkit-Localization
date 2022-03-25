@@ -1,4 +1,9 @@
  # -*- coding: utf-8 -*-
+"""
+Some functions about the text maniqulate, such as match text, text length, etc.
+    v0.2.1, developed by devseed
+"""
+
 import os
 import re
 import codecs
@@ -9,15 +14,6 @@ if os.path.exists("bintext.py"):
 else:
     import zzbintext as bintext
     
-"""
-libtext.py, by devseed
-Some functions about the text maniqulate, such as match text, text length, etc.
-
-v0.1 match_texts, write_format_multi, read_format_multi
-v0.2 count_glphy for building font
-v0.2.1 fix read_format_multi bug
-"""
-
 def lcs(s1, s2):
     """
     calculate the longeset common sequence legth of s1 and s2
@@ -185,3 +181,10 @@ def read_format_multi(inpath, only_text=False):
     file_ftexts.append( {'filename' : filename, 'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
     
     return file_ftexts
+
+"""
+history:
+v0.1 match_texts, write_format_multi, read_format_multi
+v0.2 count_glphy for building font
+v0.2.1 fix read_format_multi bug
+"""

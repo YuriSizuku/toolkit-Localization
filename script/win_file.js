@@ -1,6 +1,6 @@
 /*
-    win_file.js, by devseed, v0.1
-    use this script to log the windows file api function
+use this script to log the windows file api function
+    v0.1, developed by devseed
 */
 
 function hook_cfile(idx=0)

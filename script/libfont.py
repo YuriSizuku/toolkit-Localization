@@ -1,4 +1,9 @@
  # -*- coding: utf-8 -*-
+"""
+Utils for extracting, building tile font, or generating font picture, tbl
+    v0.2.3, developed by devseed
+"""
+
 import os
 import math
 import re
@@ -8,23 +13,6 @@ import codecs
 import numpy as np
 #import cv2
 from PIL import ImageFont, ImageDraw, Image 
-
-"""
-libfont.py, by devseed
-Utils for extracting, building tile font, or generating font picture, tbl
-
-v0.1 initial version
-v0.1.5 add function save_tbl, fix px48->pt error
-v0.1.6 add gray2tilefont, tilefont2gray
-v0.1.7 slightly change some function
-v0.1.8 add generate_sjis_tbl, merge tbl, find_adding_char
-v0.2 add extract_glphys from font image, 
-     rebuild_tbl, merge two tbl with the same position of the same char
-v0.2.1 align_tbl, manualy align tbl for glphys 
-       by the adding offset(+-) at some position  
-v0.2.2 replace_char, to replace useless char to new char in tbl
-v0.2.3 fix some problem of encoding, img to tile font alpha value
-"""
 
 def generate_gb2312_tbl(outpath=r"", only_kanji=False, replace_map={}):
     tbl = []
@@ -506,3 +494,18 @@ def build_picturefont(ttfpath, tblpath, char_width, char_height, n_row=64,
 
     if outpath!="": imgpil.save(outpath)
     return np.array(imgpil)
+
+"""
+history:
+v0.1 initial version
+v0.1.5 add function save_tbl, fix px48->pt error
+v0.1.6 add gray2tilefont, tilefont2gray
+v0.1.7 slightly change some function
+v0.1.8 add generate_sjis_tbl, merge tbl, find_adding_char
+v0.2 add extract_glphys from font image, 
+     rebuild_tbl, merge two tbl with the same position of the same char
+v0.2.1 align_tbl, manualy align tbl for glphys 
+       by the adding offset(+-) at some position  
+v0.2.2 replace_char, to replace useless char to new char in tbl
+v0.2.3 fix some problem of encoding, img to tile font alpha value
+"""

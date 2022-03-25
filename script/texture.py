@@ -1,17 +1,16 @@
+"""
+something about texture and picture convert
+    v0.1.1, develope by seed
+"""
+
+import os
+import sys
 import cv2 
 import numpy as np
 import argparse
 import math
 import struct
-import os
 
-"""
-texture.py, by devseed
-something about texture and picture convert
-
-v0.1 initial version with RGBA8888， RGB332 convert
-v0.1.1 added BGR mode
-"""
 texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
 
 def raw2gray(data, width):
@@ -164,4 +163,9 @@ if __name__ == '__main__':
         picture2texture(args.inpath, outpath=args.outpath, format=args.format, compress_format=args.compress, is_bgr=args.bgr)
     else:
         texture2picture(args.inpath, args.width, outpath=args.outpath, format=args.format, compress_format=args.compress, is_bgr=args.bgr)
-        
+
+"""
+history:
+v0.1 initial version with RGBA8888， RGB332 convert
+v0.1.1 added BGR mode
+"""

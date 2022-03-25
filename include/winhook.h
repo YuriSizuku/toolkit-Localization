@@ -1,13 +1,6 @@
 /*
-  winhook.h, by devseed, v0.2.3
-  windows dyamic hook util functions wrappers 
-
-  history:
-    v0.1 initial version
-    v0.2 add make this to single file
-    v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
-    v0.2.3 change name to winhook.h and add guard for function name
-    
+windows dyamic hook util functions wrappers
+    v0.2.3, developed by devseed
 */
 
 #ifndef _WINHOOK_H
@@ -280,3 +273,11 @@ int winhook_inlineunhooks(PVOID pfnOlds[], PVOID pfnNews[], size_t n)
 }
 #endif
 #endif
+
+/*
+history:
+v0.1 initial version
+v0.2 add make this to single file
+v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
+v0.2.3 change name to winhook.h and add guard for function name
+*/

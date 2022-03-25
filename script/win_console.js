@@ -1,6 +1,6 @@
 /*
-    win_console.js, by devseed, v0.1
-    use this script to allocate a console on some program
+use this script to allocate a console on some program
+    v0.1, developed by devseed
 */
 
 function hook_console()
