@@ -1,8 +1,10 @@
 """
 modify windows pe with dll injected for hooking
-    v0.3, developed by devseed
+    v0.3.1, developed by devseed
 """
 
+from ast import Store, arg
+from pickle import FALSE
 import sys
 import os
 import argparse
@@ -116,7 +118,7 @@ def injectdll_codecave(exepath, dllpath, outpath="out.exe"):
 
 # change the oep and use codecave by using PEB
 # only support for x86 and x64 architecture, no arm support
-def injectdll_codecave2(exepath, dllpath, outpath="out.exe"):
+def injectdll_codecave2(exepath, dllpath, outpath="out.exe", aslr=FALSE):
         # parsing pe
     pe = lief.parse(exepath)
     pe_oph = pe.optional_header
@@ -130,29 +132,39 @@ def injectdll_codecave2(exepath, dllpath, outpath="out.exe"):
         ks = Ks(KS_ARCH_X86, KS_MODE_64)
         infostr = f"try to compile asm:"
         code_str = f"""
-            call geteip; 
+            call getip; 
             lea rbx, [rax-5];
-            
             push rcx;
             push rdx;
             push r8;
             push r9;
             sub rsp, 0x28; // this is for memory 0x10 align
-            lea rax, [rbx+dllpath];
+
+            // get the imagebase
+            mov rax, 0x60; // to avoid relative addressing
+            mov rdi, qword ptr gs:[rax]; //peb
+            mov rdi, [rdi + 18h]; //ldr
+            mov rdi, [rdi + 20h]; //InMemoryOrderLoadList, this
+            mov rdi, [rdi -10h + 30h]; //this.DllBase
+            
+            // load dll
+            lea rax, [rbx + dllpath];
             add rax, {len(dllpath_bytes)};
             call rax; // findLoadlibraryA
             lea rcx, [rbx+dllpath];
             call rax; // LoadLibraryA
+            
+            // jmp to origin oep
             add rsp, 0x28;
             pop r9;
             pop r8;
             pop rdx;
             pop rcx;
-
-            mov rax, 0x{imgbase+oeprva:08X};
+            mov rax, 0x{oeprva:04X};
+            add rax, rdi;
             jmp rax;
             
-            geteip:
+            getip:
             mov rax, [rsp]
             ret
 
@@ -165,17 +177,29 @@ def injectdll_codecave2(exepath, dllpath, outpath="out.exe"):
         infostr = f"try to compile asm: "
         ks = Ks(KS_ARCH_X86, KS_MODE_32)
         code_str = f"""
-            call geteip; 
+            call getip; 
             lea ebx, [eax-5];
-            lea eax, [ebx+dllpath];
+            
+            // get the imagebase
+            mov eax, 0x30; // to avoid relative addressing
+            mov edi, dword ptr fs:[eax]; //peb
+            mov edi, [edi + 0ch]; //ldr
+            mov edi, [edi + 14h]; //InMemoryOrderLoadList, this
+            mov edi, [edi -8h + 18h]; //this.DllBase
+
+            // load dll
+            lea eax, [ebx + dllpath];
             push eax;
             add eax, {len(dllpath_bytes)};
-            call eax;
-            call eax;
-            mov eax, 0x{imgbase+oeprva:08X};
+            call eax; // findLoadLibraryA
+            call eax; // LoadLibraryA
+            
+            // jmp to origin oep
+            mov eax, 0x{oeprva:04X};
+            add eax, edi;
             jmp eax;
             
-            geteip:
+            getip:
             mov eax, [esp]
             ret
 
@@ -195,7 +219,8 @@ def injectdll_codecave2(exepath, dllpath, outpath="out.exe"):
     section_loader = pe.add_section(section_loader, 
         lief.PE.SECTION_TYPES.TEXT)
     pe_oph.addressof_entrypoint = section_loader.virtual_address
-    pe_oph.remove(lief.PE.DLL_CHARACTERISTICS.DYNAMIC_BASE)
+    if not aslr:
+        pe_oph.remove(lief.PE.DLL_CHARACTERISTICS.DYNAMIC_BASE)
     builder = lief.PE.Builder(pe)
     builder.build()
     builder.write(outpath)
@@ -213,13 +238,14 @@ def main():
     parser.add_argument('dllpath', type=str)
     parser.add_argument('--method', '-m', default='codecave')
     parser.add_argument('--outpath', '-o', default='out.exe')
+    parser.add_argument('--aslr', action="store_true")
     args = parser.parse_args()
     if args.method.lower() == 'codecave':
         injectdll_codecave(args.exepath, args.dllpath, args.outpath)
     elif args.method.lower() == 'codecave2':
         injectdll_codecave2(args.exepath, args.dllpath, args.outpath)
     elif args.method.lower() == 'iat':
-        injectdll_iat(args.exepath, args.dllpath, args.outpath)
+        injectdll_iat(args.exepath, args.dllpath, args.outpath, args.aslr)
     else:
         raise NotImplementedError()    
     
@@ -231,7 +257,8 @@ if __name__ == "__main__":
 """
 history:
 v0.1 injectdll by adding iat entry
-v0.2 add codecave using dynamiclly LoadLibraryA from iat,
+v0.2 add codecave method using dynamiclly LoadLibraryA from iat,
         to avoid windows defender assuming this as virus
-v0.3 add codecave using PEB to get LoadLibraryA
+v0.3 add codecave2 method using PEB to get LoadLibraryA
+v0.3.1 support aslr for codecave2 method
 """
