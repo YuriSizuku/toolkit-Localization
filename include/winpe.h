@@ -41,8 +41,8 @@ extern "C" {
 #endif
 typedef struct _RELOCOFFSET
 {
-	WORD offset : 12;
-	WORD type	: 4;
+    WORD offset : 12;
+    WORD type   : 4;
 }RELOCOFFSET,*PRELOCOFFSET;
 
 typedef int bool_t;
@@ -735,7 +735,7 @@ inline size_t STDCALL winpe_memreloc(
     PIMAGE_DATA_DIRECTORY pRelocEntry = &pDataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
 	
     DWORD reloc_count = 0;
-	DWORD reloc_offset = 0;
+    DWORD reloc_offset = 0;
     int64_t shift = (int64_t)newimagebase - 
         (int64_t)pOptHeader->ImageBase;
 	while (reloc_offset < pRelocEntry->Size)
@@ -847,7 +847,7 @@ inline size_t STDCALL winpe_membindiat(void *mempe,
 }
 
 WINPEDEF WINPE_EXPORT 
-inline size_t STDCALL winpe_membindtls(void *mempe, DWORD reson)
+inline size_t STDCALL winpe_membindtls(void *mempe, DWORD reason)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
@@ -868,7 +868,7 @@ inline size_t STDCALL winpe_membindtls(void *mempe, DWORD reson)
     {
         while(*tlscb)
         {
-            (*tlscb)(mempe, DLL_PROCESS_ATTACH, NULL);
+            (*tlscb)(mempe, reason, NULL);
             tlscb++;
             tls_count++;
         }
@@ -961,7 +961,7 @@ inline void* STDCALL winpe_memfindexp(
             }       
         }
     }
-    return 0;
+    return NULL;
 }
 
 WINPEDEF WINPE_EXPORT
