@@ -42,8 +42,12 @@ def injectdll_codecave(exepath, dllpath, outpath="out.exe"):
     imgbase = pe_oph.imagebase
     oeprva = pe_oph.addressof_entrypoint
     section_code = pe.section_from_rva(oeprva)
-    impentry_LoadLibraryA = pe.get_import("KERNEL32.dll")\
-            .get_entry("LoadLibraryA")
+    try:
+        impentry_LoadLibraryA = pe.get_import("KERNEL32.dll")\
+                .get_entry("LoadLibraryA")
+    except :
+        impentry_LoadLibraryA = pe.get_import("kernel32.dll")\
+                .get_entry("LoadLibraryA")
 
     # find position to code cave
     dllpath_bytes = dllpath.encode() + b'\x00'

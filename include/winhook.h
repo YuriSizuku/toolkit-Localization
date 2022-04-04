@@ -55,9 +55,19 @@ void winhook_installconsole();
 
 
 // dynamic hook functions
+/*
+    winhook_patchmemory, patch addr by buf with bufsize
+*/
 WINHOOKDEF WINHOOK_EXPORT 
 BOOL winhook_patchmemory(LPVOID addr, 
     void* buf, size_t bufsize);
+
+/*
+    winhook_patchmemorys, batch patch memories
+*/
+WINHOOKDEF WINHOOK_EXPORT 
+BOOL winhook_patchmemorys(LPVOID addrs[], 
+    void* bufs[], size_t bufsizes[], int n);
 
 /* 
     winhook_iathookmodule is for windows dll, 
@@ -180,6 +190,7 @@ WINHOOKDEF WINHOOK_EXPORT
 BOOL winhook_patchmemory(LPVOID addr, 
     void* buf, size_t bufsize)
 {
+    if(addr==NULL || buf==NULL) return FALSE;
 	DWORD oldprotect;
     BOOL ret = VirtualProtect(addr, bufsize, PAGE_EXECUTE_READWRITE, &oldprotect);
 	if(ret)
@@ -187,6 +198,19 @@ BOOL winhook_patchmemory(LPVOID addr,
 		CopyMemory(addr, buf, bufsize);
         VirtualProtect(addr, bufsize, oldprotect, &oldprotect);
 	}
+    return ret;
+}
+
+WINHOOKDEF WINHOOK_EXPORT 
+int winhook_patchmemorys(LPVOID addrs[], 
+    void* bufs[], size_t bufsizes[], int n)
+{
+    int ret = 0;
+    for(int i=0; i<n;i++)
+    {
+        ret += winhook_patchmemory(
+            addrs[i], bufs[i], bufsizes[i]);
+    }
     return ret;
 }
 

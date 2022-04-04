@@ -1,11 +1,12 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.2, developed by devseed
+    v0.5.3, developed by devseed
 """
 
 from dataclasses import replace
 from operator import methodcaller
+from pickle import FALSE
 import struct
 import re
 import codecs
@@ -326,7 +327,7 @@ def extract_multichar(data, encoding, min_len=2):
     return addrs, texts_data
 
 def patch_text(data, ftexts, 
-    encoding = 'utf-8', padding_bytes=b'\x00', tbl=None,
+    encoding = 'utf-8', search_data=None, padding_bytes=b'\x00', tbl=None,
     can_longer=False, jump_table=None, replace_map = None):
     """
     :param data: bytearray
@@ -335,8 +336,20 @@ def patch_text(data, ftexts,
     :replace_map: a dict for replaceing char, {'a': 'b'} 
     """
     offset = 0
+    _searchedset = set()
     for _, ftext in enumerate(ftexts):
         addr, size, text = ftext['addr'], ftext['size'], ftext['text'] 
+        if search_data is not None:
+            _bytes = search_data[addr+offset:addr+offset+size]
+            addr = -1
+            while True:
+                addr = data.find(_bytes, addr+1)
+                if addr not in _searchedset:
+                    _searchedset.add(addr)
+                    break
+                if addr <0: break 
+        if addr < 0: continue
+
         data[addr+offset:addr+offset+size] = bytearray(size)
 
         text = text.replace(r'[\n]', '\n')
@@ -455,7 +468,8 @@ def shift_ftext_file(ftextpath, n, outpath):
     print("shift text done! in " +  outpath)
             
 def patch_ftext_file(ftextpath, binpath, outpath="out.bin", 
-    encoding = 'utf-8',  padding_bytes=b"\x00", tblpath="", 
+    encoding = 'utf-8', search_file="",
+    padding_bytes=b"\x00", tblpath="", 
     can_longer=False, replace_map=None):
     """
     import the text in textpath to insertpath, make the imported file as outpath
@@ -466,10 +480,14 @@ def patch_ftext_file(ftextpath, binpath, outpath="out.bin",
 
     with open(binpath, "rb") as fp:
         data = bytearray(fp.read())
+        search_data = None
+        if search_file!="":
+            with open(search_file, 'rb') as fp2:
+                search_data = fp2.read()
         tbl = None if tblpath=="" else load_tbl(tblpath, encoding=encoding)
-        data = patch_text(data, ftexts2, encoding=encoding,            
-            padding_bytes=padding_bytes, tbl=tbl, 
-            can_longer=can_longer, replace_map=replace_map)
+        data = patch_text(data, ftexts2, search_data=search_data,
+            encoding=encoding, padding_bytes=padding_bytes, 
+            tbl=tbl, can_longer=can_longer, replace_map=replace_map)
     
     with open(outpath, "wb") as fp:
         fp.write(data)
@@ -559,6 +577,8 @@ def main():
         help="custom charcode table")
    
     # other configure
+    parser.add_argument('--search_file', type=str, default="", 
+        help="search the origin text for replace")
     parser.add_argument('--min_len', type=int, default=2)
     parser.add_argument('--padding_bytes', 
         type=int, default=[0x20], nargs='+',
@@ -590,8 +610,9 @@ def main():
             replace_map[_t[0]] = _t[1]
         patch_ftext_file(args.inpath, args.patch, args.outpath, 
             encoding=args.encoding, 
+            search_file = args.search_file,  
             padding_bytes=bytes(args.padding_bytes), 
-            tblpath=args.tbl, can_longer=args.can_longer,
+            tblpath=args.tbl, can_longer=args.can_longer, 
             replace_map=replace_map)
     else:
         extract_ftext_file(args.inpath, args.outpath, 
@@ -599,7 +620,7 @@ def main():
             has_cjk=args.has_cjk, min_len=args.min_len)
 
 if __name__ == "__main__":
-    debug()
+    #debug()
     main()
     pass
 
@@ -620,4 +641,5 @@ v0.4.5 fix the padding problem, --padding bytes 32 00
 v0.5 add verify text, shift addr function
 v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
 v0.5.2 add replace_map in patch_text
+v0.5.3 add serach replace text mode by --search_file
 """
