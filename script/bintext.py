@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.3, developed by devseed
+    v0.5.4, developed by devseed
 """
 
 from dataclasses import replace
@@ -493,7 +493,9 @@ def patch_ftext_file(ftextpath, binpath, outpath="out.bin",
         fp.write(data)
 
 def extract_ftext_file(binpath, outpath="out.txt", 
-    encoding = 'utf-8', tblpath="", min_len=2, has_cjk=True, f_extract=None):
+    encoding = 'utf-8', tblpath="", 
+    start_addr = 0, end_addr= 0,
+    min_len=2, has_cjk=True, f_extract=None):
     """
     export all the text to txt file in utf-8
     :param encoding: the encoding to the inpath, if tbl is None
@@ -505,17 +507,25 @@ def extract_ftext_file(binpath, outpath="out.txt",
     if tblpath!="" :
         tbl = load_tbl(tblpath, encoding=encoding) 
     else: tbl = None
+    if end_addr == 0: end_addr = len(data)
+    print(f"size={len(data):x}, startaddr={start_addr:x}, endaddr={end_addr:x}")
+   
     if f_extract:
         addrs, texts_data = f_extract(data, tbl)
     else:
         if tblpath!="" :
-            addrs, texts_data = extract_text_tbl(data, tbl, min_len=min_len)
+            addrs, texts_data = extract_text_tbl(
+                data[start_addr: end_addr], tbl, min_len=min_len)
         elif encoding =="utf-8" :
-            addrs, texts_data = extract_text_utf8(data, min_len=min_len)
+            addrs, texts_data = extract_text_utf8(
+                data[start_addr: end_addr], min_len=min_len)
         elif encoding == "sjis" or  encoding == "shift-jis":
-            addrs, texts_data = extract_text_sjis(data, min_len=min_len)
+            addrs, texts_data = extract_text_sjis(
+                data[start_addr: end_addr], min_len=min_len)
         else: 
-            addrs, texts_data = extract_multichar(data, encoding=encoding, min_len=min_len)
+            addrs, texts_data = extract_multichar(
+                data[start_addr: end_addr], encoding=encoding, min_len=min_len)
+    addrs = map(lambda x: x+start_addr, addrs)
 
     ftexts = []
     for i, (addr, text_data) in enumerate(zip(addrs, texts_data)):
@@ -579,6 +589,10 @@ def main():
     # other configure
     parser.add_argument('--search_file', type=str, default="", 
         help="search the origin text for replace")
+    parser.add_argument('--start_addr', type=int, default=0, 
+        help="extract text start with this addr")
+    parser.add_argument('--end_addr', type=int, default=0, 
+        help="extract text end with this addr")
     parser.add_argument('--min_len', type=int, default=2)
     parser.add_argument('--padding_bytes', 
         type=int, default=[0x20], nargs='+',
@@ -617,6 +631,7 @@ def main():
     else:
         extract_ftext_file(args.inpath, args.outpath, 
             encoding=args.encoding, tblpath=args.tbl, 
+            start_addr=args.start_addr, end_addr=args.end_addr,
             has_cjk=args.has_cjk, min_len=args.min_len)
 
 if __name__ == "__main__":
@@ -626,20 +641,21 @@ if __name__ == "__main__":
 
 """
 history:
-v0.1 initial version with utf-8 support
-v0.2 added tbl and decodetbl, encodetbl, check with tbl
-v0.3 added extractsjis, extract by tbl or arbitary extract implement, patch using tbl
-v0.3.1 added punctuation cjk, added try in decode
-v0.3.2 fixed patched error when short than origin 
-v0.3.3 change the merge function with matching "●(.*)●[ ](.*)"
-v0.4 add read_format_text, write_format_text, optimize the code structure
-v0.4.1 fixed merge_text in this optimized the code structure
-v0.4.2 remove useless callbacks, adjust default len, add arbitary encoding, add jump_table rebuild, 
-v0.4.3 change the structure, write_format_text, read_format_text added line_texts mode
-v0.4.4 adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
-v0.4.5 fix the padding problem, --padding bytes 32 00
-v0.5 add verify text, shift addr function
-v0.5.1 fix the problem of other encoding tbl; read_format_text regex in lazy mode.
-v0.5.2 add replace_map in patch_text
-v0.5.3 add serach replace text mode by --search_file
+v0.1, initial version with utf-8 support
+v0.2, added tbl and decodetbl, encodetbl, check with tbl
+v0.3, added extractsjis, extract by tbl or arbitary extract implement, patch using tbl
+v0.3.1, added punctuation cjk, added try in decode
+v0.3.2, fixed patched error when short than origin 
+v0.3.3, change the merge function with matching "●(.*)●[ ](.*)"
+v0.4, add read_format_text, write_format_text, optimize the code structure
+v0.4.1, fixed merge_text in this optimized the code structure
+v0.4.2, remove useless callbacks, adjust default len, add arbitary encoding, add jump_table rebuild, 
+v0.4.3, change the structure, write_format_text, read_format_text added line_texts mode
+v0.4.4, adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
+v0.4.5, fix the padding problem, --padding bytes 32 00
+v0.5, add verify text, shift addr function
+v0.5.1, fix the problem of other encoding tbl; read_format_text regex in lazy mode.
+v0.5.2, add replace_map in patch_text
+v0.5.3, add serach replace text mode by --search_file
+v0.5.4, add extraxt --start, --end parameter
 """
