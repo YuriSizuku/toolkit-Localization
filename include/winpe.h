@@ -302,7 +302,9 @@ inline size_t STDCALL winpe_appendsecth(
 #ifdef WINPE_IMPLEMENTATION
 #include <stdio.h>
 #ifndef _DEBUG
+#ifndef NDEBUG
 #define NDEBUG
+#endif
 #endif
 #include <assert.h>
 #include <Windows.h>
@@ -350,7 +352,7 @@ inline static int STDCALL _inl_stricmp2(const char *str1, const wchar_t* str2)
 inline static void* STDCALL _inl_memset(void *buf, int ch, size_t n)
 {
     char *p = buf;
-    for(int i=0;i<n;i++) p[i] = (char)ch;
+    for(size_t i=0;i<n;i++) p[i] = (char)ch;
     return buf;
 }
 
@@ -358,7 +360,7 @@ inline static void* STDCALL _inl_memcpy(void *dst, const void *src, size_t n)
 {
     char *p1 = (char*)dst;
     char *p2 = (char*)src;
-    for(int i=0;i<n;i++) p1[i] = p2[i];
+    for(size_t i=0;i<n;i++) p1[i] = p2[i];
     return dst;
 }
 
@@ -406,7 +408,7 @@ void* STDCALL winpe_overlayload_file(
         if(*poverlaysize>0)
         {
             overlay = malloc(*poverlaysize);
-            memcpy(overlay, rawpe+overlayoffset, *poverlaysize);
+            memcpy(overlay, (uint8_t*)rawpe+overlayoffset, *poverlaysize);
         }
     }
     free(rawpe);
@@ -523,7 +525,7 @@ inline BOOL STDCALL winpe_memFreeLibraryEx(void *mempe,
     PFN_VirtualFree pfnVirtualFree = (PFN_VirtualFree)
         pfnGetProcAddress(hmod_kernel32, name_VirtualFree);
     PFN_DllMain pfnDllMain = (PFN_DllMain)
-        (mempe + winpe_oepval(mempe, 0));
+        ((uint8_t*)mempe + winpe_oepval(mempe, 0));
     winpe_membindtls(mempe, DLL_PROCESS_DETACH);
     pfnDllMain((HINSTANCE)mempe, DLL_PROCESS_DETACH, NULL);
     return pfnVirtualFree(mempe, 0, MEM_FREE);
@@ -534,7 +536,7 @@ inline PROC STDCALL winpe_memGetProcAddress(
     void *mempe, const char *funcname)
 {
     void* expva = winpe_memfindexp(mempe, funcname);
-    size_t exprva = (size_t)(expva - mempe);
+    size_t exprva = (size_t)((uint8_t*)expva - (uint8_t*)mempe);
     return (PROC)winpe_memforwardexp(mempe, exprva, 
         (PFN_LoadLibraryA)winpe_findloadlibrarya(), 
         (PFN_GetProcAddress)winpe_memfindexp);
@@ -660,12 +662,12 @@ inline size_t STDCALL winpe_overlayoffset(const void *rawpe)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)rawpe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)rawpe + pDosHeader->e_lfanew);
+        ((uint8_t*)rawpe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
     PIMAGE_SECTION_HEADER pSectHeader = (PIMAGE_SECTION_HEADER)
-        ((void*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
+        ((uint8_t*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
     WORD sectNum = pFileHeader->NumberOfSections;
 
     return pSectHeader[sectNum-1].PointerToRawData + 
@@ -681,11 +683,11 @@ inline size_t STDCALL winpe_memload(
     // load rawpe to memalign
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)rawpe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)rawpe + pDosHeader->e_lfanew);
+        ((uint8_t*)rawpe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_SECTION_HEADER pSectHeader = (PIMAGE_SECTION_HEADER)
-        ((void *)pOptHeader + pFileHeader->SizeOfOptionalHeader);
+        ((uint8_t*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
     WORD sectNum = pFileHeader->NumberOfSections;
     size_t imagesize = pOptHeader->SizeOfImage;
     if(!mempe) return imagesize;
@@ -696,8 +698,8 @@ inline size_t STDCALL winpe_memload(
     
     for(WORD i=0;i<sectNum;i++)
     {
-        _inl_memcpy(mempe+pSectHeader[i].VirtualAddress, 
-            rawpe+pSectHeader[i].PointerToRawData,
+        _inl_memcpy((uint8_t*)mempe+pSectHeader[i].VirtualAddress,
+            (uint8_t*)rawpe+pSectHeader[i].PointerToRawData,
             pSectHeader[i].SizeOfRawData);
     }
 
@@ -705,11 +707,11 @@ inline size_t STDCALL winpe_memload(
     if(same_align)
     {
         pDosHeader = (PIMAGE_DOS_HEADER)mempe;
-        pNtHeader = (PIMAGE_NT_HEADERS)((void*)mempe + pDosHeader->e_lfanew);
+        pNtHeader = (PIMAGE_NT_HEADERS)((uint8_t*)mempe + pDosHeader->e_lfanew);
         pFileHeader = &pNtHeader->FileHeader;
         pOptHeader = &pNtHeader->OptionalHeader;
         pSectHeader = (PIMAGE_SECTION_HEADER)
-            ((void *)pOptHeader + pFileHeader->SizeOfOptionalHeader);
+            ((uint8_t*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
         sectNum = pFileHeader->NumberOfSections;
 
         pOptHeader->FileAlignment = pOptHeader->SectionAlignment;
@@ -728,7 +730,7 @@ inline size_t STDCALL winpe_memreloc(
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)mempe + pDosHeader->e_lfanew);
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
@@ -741,8 +743,8 @@ inline size_t STDCALL winpe_memreloc(
 	while (reloc_offset < pRelocEntry->Size)
 	{
 		PIMAGE_BASE_RELOCATION pBaseReloc = (PIMAGE_BASE_RELOCATION)
-            ((void*)mempe + pRelocEntry->VirtualAddress + reloc_offset);
-        PRELOCOFFSET pRelocOffset = (PRELOCOFFSET)((void*)pBaseReloc 
+            ((uint8_t*)mempe + pRelocEntry->VirtualAddress + reloc_offset);
+        PRELOCOFFSET pRelocOffset = (PRELOCOFFSET)((uint8_t*)pBaseReloc
             + sizeof(IMAGE_BASE_RELOCATION));
 		DWORD item_num = (pBaseReloc->SizeOfBlock - // RELOCOFFSET block num
 			sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RELOCOFFSET);
@@ -752,7 +754,7 @@ inline size_t STDCALL winpe_memreloc(
                 !pRelocOffset[i].offset) continue;
 			DWORD targetoffset = pBaseReloc->VirtualAddress + 
                     pRelocOffset[i].offset;
-            size_t *paddr = (size_t *)((void*)mempe + targetoffset);
+            size_t *paddr = (size_t *)((uint8_t*)mempe + targetoffset);
             size_t relocaddr = (size_t)((int64_t)*paddr + shift);
             //printf("reloc 0x%08x->0x%08x\n", *paddr, relocaddr);
             *paddr = relocaddr;
@@ -772,14 +774,14 @@ inline size_t STDCALL winpe_membindiat(void *mempe,
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)mempe + pDosHeader->e_lfanew);
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
     PIMAGE_DATA_DIRECTORY pImpEntry =  
         &pDataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
     PIMAGE_IMPORT_DESCRIPTOR pImpDescriptor =  
-        (PIMAGE_IMPORT_DESCRIPTOR)(mempe + pImpEntry->VirtualAddress);
+        (PIMAGE_IMPORT_DESCRIPTOR)((uint8_t*)mempe + pImpEntry->VirtualAddress);
 
     PIMAGE_THUNK_DATA pFtThunk = NULL;
     PIMAGE_THUNK_DATA pOftThunk = NULL;
@@ -797,21 +799,21 @@ inline size_t STDCALL winpe_membindiat(void *mempe,
     DWORD iat_count = 0;
     for (; pImpDescriptor->Name; pImpDescriptor++) 
     {
-        pDllName = (LPCSTR)(mempe + pImpDescriptor->Name);
+        pDllName = (LPCSTR)((uint8_t*)mempe + pImpDescriptor->Name);
         pFtThunk = (PIMAGE_THUNK_DATA)
-            (mempe + pImpDescriptor->FirstThunk);
+            ((uint8_t*)mempe + pImpDescriptor->FirstThunk);
         pOftThunk = (PIMAGE_THUNK_DATA)
-            (mempe + pImpDescriptor->OriginalFirstThunk);
+            ((uint8_t*)mempe + pImpDescriptor->OriginalFirstThunk);
         size_t dllbase = (size_t)pfnLoadLibraryA(pDllName);
         if(!dllbase) return 0;
 
         for (int j=0; pFtThunk[j].u1.Function 
             &&  pOftThunk[j].u1.Function; j++) 
         {
-            size_t _addr = (size_t)(mempe + pOftThunk[j].u1.AddressOfData);
+            size_t _addr = (size_t)((uint8_t*)mempe + pOftThunk[j].u1.AddressOfData);
             if(sizeof(size_t)>4) // x64
             {
-                if((_addr>>63) == 1)
+                if(((uint64_t)_addr>>63) == 1)
                 {
                     funcname = (char *)(_addr & 0x000000000000ffff);
                 }
@@ -851,7 +853,7 @@ inline size_t STDCALL winpe_membindtls(void *mempe, DWORD reason)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)mempe + pDosHeader->e_lfanew);
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
@@ -861,7 +863,7 @@ inline size_t STDCALL winpe_membindtls(void *mempe, DWORD reason)
 
     size_t tls_count = 0;
     PIMAGE_TLS_DIRECTORY pTlsEntry = (PIMAGE_TLS_DIRECTORY)
-        (mempe + pTlsDirectory->VirtualAddress);
+        ((uint8_t*)mempe + pTlsDirectory->VirtualAddress);
     PIMAGE_TLS_CALLBACK *tlscb= (PIMAGE_TLS_CALLBACK*)
         pTlsEntry->AddressOfCallBacks;
     if(tlscb)
@@ -882,14 +884,14 @@ inline void* STDCALL winpe_memfindiat(void *mempe,
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)mempe + pDosHeader->e_lfanew);
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
     PIMAGE_DATA_DIRECTORY pImpEntry =  
         &pDataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
     PIMAGE_IMPORT_DESCRIPTOR pImpDescriptor =  
-        (PIMAGE_IMPORT_DESCRIPTOR)(mempe + pImpEntry->VirtualAddress);
+        (PIMAGE_IMPORT_DESCRIPTOR)((uint8_t*)mempe + pImpEntry->VirtualAddress);
 
     PIMAGE_THUNK_DATA pFtThunk = NULL;
     PIMAGE_THUNK_DATA pOftThunk = NULL;
@@ -898,17 +900,17 @@ inline void* STDCALL winpe_memfindiat(void *mempe,
 
     for (; pImpDescriptor->Name; pImpDescriptor++) 
     {
-        pDllName = (LPCSTR)(mempe + pImpDescriptor->Name);
+        pDllName = (LPCSTR)((uint8_t*)mempe + pImpDescriptor->Name);
         if(dllname && _inl_stricmp(pDllName, dllname)!=0) continue;
         pFtThunk = (PIMAGE_THUNK_DATA)
-            (mempe + pImpDescriptor->FirstThunk);
+            ((uint8_t*)mempe + pImpDescriptor->FirstThunk);
         pOftThunk = (PIMAGE_THUNK_DATA)
-            (mempe + pImpDescriptor->OriginalFirstThunk);
+            ((uint8_t*)mempe + pImpDescriptor->OriginalFirstThunk);
 
         for (int j=0; pFtThunk[j].u1.Function 
             &&  pOftThunk[j].u1.Function; j++) 
         {
-            pImpByName=(PIMAGE_IMPORT_BY_NAME)(mempe +
+            pImpByName=(PIMAGE_IMPORT_BY_NAME)((uint8_t*)mempe +
                 pOftThunk[j].u1.AddressOfData);
             if((size_t)funcname < MAXWORD) // ordinary
             {
@@ -932,32 +934,35 @@ inline void* STDCALL winpe_memfindexp(
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)mempe + pDosHeader->e_lfanew);
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
     PIMAGE_DATA_DIRECTORY pExpEntry =  
         &pDataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
     PIMAGE_EXPORT_DIRECTORY  pExpDescriptor =  
-        (PIMAGE_EXPORT_DIRECTORY)(mempe + pExpEntry->VirtualAddress);
+        (PIMAGE_EXPORT_DIRECTORY)((uint8_t*)mempe + pExpEntry->VirtualAddress);
 
-    WORD *ordrva = mempe + pExpDescriptor->AddressOfNameOrdinals;
-    DWORD *namerva = mempe + pExpDescriptor->AddressOfNames;
-    DWORD *funcrva = mempe + pExpDescriptor->AddressOfFunctions;
+    WORD *ordrva = (WORD*)((uint8_t*)mempe 
+        + pExpDescriptor->AddressOfNameOrdinals);
+    DWORD *namerva = (DWORD*)((uint8_t*)mempe 
+        + pExpDescriptor->AddressOfNames);
+    DWORD *funcrva = (DWORD*)((uint8_t*)mempe 
+        + pExpDescriptor->AddressOfFunctions);
     if((size_t)funcname <= MAXWORD) // find by ordnial
     {
         WORD ordbase = LOWORD(pExpDescriptor->Base) - 1;
         WORD funcord = LOWORD(funcname);
-        return (void*)(mempe + funcrva[ordrva[funcord-ordbase]]);
+        return (void*)((uint8_t*)mempe + funcrva[ordrva[funcord-ordbase]]);
     }
     else
     {
-        for(int i=0;i<pExpDescriptor->NumberOfNames;i++)
+        for(DWORD i=0;i<pExpDescriptor->NumberOfNames;i++)
         {
-            LPCSTR curname = (LPCSTR)(mempe+namerva[i]);
+            LPCSTR curname = (LPCSTR)((uint8_t*)mempe+namerva[i]);
             if(_inl_stricmp(curname, funcname)==0)
             {
-                return (void*)(mempe + funcrva[ordrva[i]]);
+                return (void*)((uint8_t*)mempe + funcrva[ordrva[i]]);
             }       
         }
     }
@@ -975,7 +980,7 @@ inline void* STDCALL winpe_memforwardexp(
     {
         PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)dllbase;
         PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-            ((void*)dllbase + pDosHeader->e_lfanew);
+            ((uint8_t*)dllbase + pDosHeader->e_lfanew);
         PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
         PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
         PIMAGE_DATA_DIRECTORY pExpEntry =  
@@ -1025,7 +1030,7 @@ inline void STDCALL winpe_noaslr(void *pe)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)pe + pDosHeader->e_lfanew);
+        ((uint8_t*)pe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     pOptHeader->DllCharacteristics &= ~IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE;
@@ -1036,7 +1041,7 @@ inline DWORD STDCALL winpe_oepval(void *pe, DWORD newoeprva)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)pe + pDosHeader->e_lfanew);
+        ((uint8_t*)pe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     DWORD orgoep = pOptHeader->AddressOfEntryPoint;
@@ -1049,7 +1054,7 @@ inline size_t STDCALL winpe_imagebaseval(void *pe, size_t newimagebase)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)pe + pDosHeader->e_lfanew);
+        ((uint8_t*)pe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     size_t imagebase = pOptHeader->ImageBase;
@@ -1062,7 +1067,7 @@ inline size_t STDCALL winpe_imagesizeval(void *pe, size_t newimagesize)
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)pe + pDosHeader->e_lfanew);
+        ((uint8_t*)pe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     size_t imagesize = pOptHeader->SizeOfImage;
@@ -1076,11 +1081,11 @@ inline size_t STDCALL winpe_appendsecth(void *pe,
 {
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pe;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)pe + pDosHeader->e_lfanew);
+        ((uint8_t*)pe + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_SECTION_HEADER pSectHeader = (PIMAGE_SECTION_HEADER)
-        ((void*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
+        ((uint8_t*)pOptHeader + pFileHeader->SizeOfOptionalHeader);
     WORD sectNum = pFileHeader->NumberOfSections;
     PIMAGE_SECTION_HEADER pLastSectHeader = &pSectHeader[sectNum-1];
     DWORD addr, align;

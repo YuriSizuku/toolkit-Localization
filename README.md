@@ -1,6 +1,8 @@
 # ReverseUtil
 There are my tools for reversing.  
 
+The building example is in `./vsproject`.  As the visual studio doesn't support x64 `inline asm`, if you want to build for x64, please use clang.
+
 ## UTIL scripts
 
 * `bintext.py`, for text exporting and importing, checking  

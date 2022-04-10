@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31613.86
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwinpe", "libwinpe\libwinpe.vcxproj", "{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Debug|x64.ActiveCfg = Debug|x64
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Debug|x64.Build.0 = Debug|x64
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Debug|x86.ActiveCfg = Debug|Win32
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Debug|x86.Build.0 = Debug|Win32
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Release|x64.ActiveCfg = Release|x64
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Release|x64.Build.0 = Release|x64
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Release|x86.ActiveCfg = Release|Win32
+		{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {99F1140B-A1EE-4793-AC62-4F3138CC5281}
+	EndGlobalSection
+EndGlobal
