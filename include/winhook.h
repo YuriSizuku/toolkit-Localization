@@ -1,6 +1,6 @@
 /*
 windows dyamic hook util functions wrappers
-    v0.2.3, developed by devseed
+    v0.2.4, developed by devseed
 */
 
 #ifndef _WINHOOK_H
@@ -69,6 +69,14 @@ WINHOOKDEF WINHOOK_EXPORT
 BOOL winhook_patchmemorys(LPVOID addrs[], 
     void* bufs[], size_t bufsizes[], int n);
 
+/*
+    winhook_searchpattern, search the pattern like "ab 12 ?? 34"
+    return the matched address, matchend
+*/
+WINHOOKDEF WINHOOK_EXPORT
+void* winhook_searchmemory(void* addr, 
+    size_t n, const char* pattern, size_t *pmatchsize);
+
 /* 
     winhook_iathookmodule is for windows dll, 
     moduleDllName is which dll to hook iat
@@ -97,7 +105,7 @@ BOOL winhook_iathook(LPCSTR targetDllName,
     ULONGLONG rva = 0x11D40;
     HMODULE hMod = GetModuleHandleA(NULL);
     PVOID pfnOlds[2] = { (PVOID)((ULONGLONG)hMod + rva), NULL }, pfnNews[2] = { test_hook, NULL };
-    winhook_inlinehooks(pfnOlds, pfnNews);
+    winhook_inlinehooks(pfnOlds, pfnNews, 2);
     g_pfnAbout = (void(*)())(pfnOlds[0]);
 */
 WINHOOKDEF WINHOOK_EXPORT
@@ -114,9 +122,11 @@ int winhook_inlineunhooks(PVOID pfnOlds[],
 #endif
 
 #ifdef WINHOOK_IMPLEMENTATION
+#include <stdio.h>
+#include <stdint.h>
 #include <Windows.h>
 #include <tlhelp32.h>
-#include <stdio.h>
+
 // loader functions
 WINHOOKDEF WINHOOK_EXPORT 
 HANDLE winhook_startexe(LPCSTR exepath, LPSTR cmdstr)
@@ -166,8 +176,8 @@ BOOL winhook_injectdll(HANDLE hProcess, LPCSTR dllname)
     if (param_addr == NULL) return FALSE;
     WriteProcessMemory(hProcess, param_addr, dllname, strlen(dllname)+1, &count);
 
-    HMODULE kernel = GetModuleHandleA("Kernel32");
-    FARPROC pfnLoadlibraryA = GetProcAddress(kernel, "LoadLibraryA");
+    HMODULE kernel32 = GetModuleHandleA("Kernel32");
+    FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, "LoadLibraryA");
     HANDLE threadHandle = CreateRemoteThread(hProcess, NULL, 0, 
         (LPTHREAD_START_ROUTINE)pfnLoadlibraryA, param_addr, 0, NULL); 
    
@@ -214,6 +224,58 @@ int winhook_patchmemorys(LPVOID addrs[],
     return ret;
 }
 
+void* winhook_searchmemory(void* addr,
+    size_t n, const char* pattern, size_t* pmatchsize)
+{
+    int i = 0;
+    int matchend = 0;
+    void* matchaddr = NULL;
+    while (i < n)
+    {
+        int j = 0;
+        int matchflag = 1;
+        matchend = 0;
+        while (pattern[j])
+        {
+            if (pattern[j] == 0x20)
+            {
+                j++;
+                continue;
+            }
+            char _c1 = (((char*)addr)[i+matchend]>>4);
+            _c1 = _c1 < 10 ? _c1 + 0x30 : _c1 + 0x41;
+            char _c2 = (((char*)addr)[i+matchend]&0xf);
+            _c2 = _c2 < 10 ? _c2 + 0x30 : _c2 + 0x41;
+            if (pattern[j] != '?')
+            {
+                if (_c1 != pattern[j] && _c1 + 0x20 != pattern[j])
+                {
+                    matchflag = 0;
+                    break;
+                }
+            }
+            if (pattern[j + 1] != '?')
+            {
+                if (_c2 != pattern[j+1] && _c2 + 0x20 != pattern[j+1])
+                {
+                    matchflag = 0;
+                    break;
+                }
+            }
+            j += 2;
+            matchend++;
+        }
+        if (matchflag)
+        {
+            matchaddr = (void*)((uint8_t*)addr + i);
+            break;
+        }
+        i++;
+    }
+    if (pmatchsize) *pmatchsize = matchend;
+    return matchaddr;
+}
+
 WINHOOKDEF WINHOOK_EXPORT 
 BOOL winhook_iathookmodule(LPCSTR targetDllName, 
     LPCSTR moduleDllName, PROC pfnOrg, PROC pfnNew)
@@ -221,7 +283,7 @@ BOOL winhook_iathookmodule(LPCSTR targetDllName,
     size_t imageBase = (size_t)GetModuleHandleA(moduleDllName);
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)imageBase;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
-        ((void*)imageBase + pDosHeader->e_lfanew);
+        ((uint8_t*)imageBase + pDosHeader->e_lfanew);
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
@@ -304,4 +366,5 @@ v0.1 initial version
 v0.2 add make this to single file
 v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
 v0.2.3 change name to winhook.h and add guard for function name
+v0.2.4 add winhook_searchmemory
 */
