@@ -5,13 +5,88 @@ something about texture and picture convert
 
 import os
 import sys
-import cv2 
+import cv2
+import queue
 import numpy as np
 import argparse
 import math
 import struct
 
 texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
+
+def swizzle_regular(n, start=0, resmat=None):
+    """
+    for generating Swizzling square
+        0	1	4	5
+        2	3	6	7
+        8	9	12	13
+        10	11	14	15
+        the square side is 2^n
+    """
+    w = h = 2**n
+    if resmat is None:
+        resmat = np.zeros([h, w], dtype=np.int)
+    else:
+        resmat = resmat.reshape([h, w])
+    resmat[h - 1, w - 1] = h*w - 1 + start
+    _que = queue.Queue()
+    _que.put((0, 0, w - 1, h - 1))
+    while not _que.empty():
+        x0, y0, x1, y1 = _que.get()
+        dx = np.int((x1+1-x0) // 2)
+        dy = np.int((y1+1-y0) // 2)
+        d = np.int((y1+1-y0)*(x1+1-x0)//4)
+        idx = resmat[y1][x1]
+        resmat[y1][x0+dx-1] = idx - d
+        resmat[y0+dy-1][x1] = idx - 2*d
+        resmat[y0+dy-1][x0+dx-1] = idx - 3*d
+        if d > 1:
+            _que.put((x0+dx, y0+dy, x1, y1))
+            _que.put((x0, y0+dy, x0+dx-1, y1))
+            _que.put((x0+dx, y0, x1, y0+dy-1))
+            _que.put((x0, y0, x0+dx-1, y0+dy-1))
+    return resmat
+
+
+def swizzle_tile(imgw, imgh, tilew=1, tileh=1, start=0, resmat=None):
+    """
+        for generating Swizzling mat with tile
+    """
+    tileyn = np.int(np.ceil(imgh/tileh))
+    tilexn = np.int(np.ceil(imgw/tilew))
+    if resmat is None:
+        resmat = np.zeros(tileyn*tilexn, dtype=np.int)
+    else:
+        resmat = resmat.reshape(tileyn*tilexn)
+    d1 = min(tileyn, tilexn)
+    d2 = max(tileyn, tilexn)
+    n = np.int(np.ceil(np.log2(d1)))
+    for pos in range(0, d1*d2, d1*d1):
+        swizzle_regular(n, start + pos, 
+            resmat[pos: pos + d1*d1])
+    resmat = resmat.reshape([tileyn, tilexn])
+    return resmat
+
+def swillze_fill(swimat, tileunitmat, stride=1, resmat=None):
+    """
+        fill the tileunitmat into the swimat
+    """
+    swiw = swimat.shape[1]
+    swih = swimat.shape[0]
+    tilew = tileunitmat.shape[1]
+    tileh = tileunitmat.shape[0]
+    tilesize = tilew * tileh * stride
+    h = swih * tileh
+    w = swiw * tilew
+    if resmat is None:
+        resmat = np.zeros([h, w], dtype=np.int)
+
+    for i in range(swiw):
+        for j in range(swih):
+            idx = swimat[j, i]
+            resmat[j*tileh:(j+1)*tileh,
+                i*tilew:(i+1)*tilew] = tileunitmat + idx*tilesize
+    return resmat
 
 def raw2gray(data, width):
     height = math.ceil(len(data) /  width)
@@ -168,4 +243,5 @@ if __name__ == '__main__':
 history:
 v0.1 initial version with RGBA8888， RGB332 convert
 v0.1.1 added BGR mode
+v0.2 add swizzle method
 """

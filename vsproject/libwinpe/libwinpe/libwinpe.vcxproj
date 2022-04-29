@@ -26,7 +26,6 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{f5ba2655-5138-436c-87fe-8ef75ad1a2ce}</ProjectGuid>
     <RootNamespace>libwinpe</RootNamespace>
-    <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
