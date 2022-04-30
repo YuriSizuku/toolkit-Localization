@@ -4,9 +4,6 @@ A binary text tool for text exporting and importing, checking
     v0.5.4, developed by devseed
 """
 
-from dataclasses import replace
-from operator import methodcaller
-from pickle import FALSE
 import struct
 import re
 import codecs
@@ -16,23 +13,26 @@ from io import StringIO, BytesIO
 # lib functions
 def isCjk(c): 
     ranges = [
-            {"from": ord(u"\u2000"), "to": ord(u"\u206f")},         # punctuation
-            {"from": ord(u"\u3000"), "to": ord(u"\u303f")},         # punctuation cjk
-            {"from": ord(u"\u3300"), "to": ord(u"\u33ff")},         # compatibility ideographs
-            {"from": ord(u"\ufe30"), "to": ord(u"\ufe4f")},         # compatibility ideographs
-            {"from": ord(u"\uf900"), "to": ord(u"\ufaff")},         # compatibility ideographs
-            {"from": ord(u"\U0002F800"), "to": ord(u"\U0002fa1f")}, # compatibility ideographs
-            {'from': ord(u'\u3040'), 'to': ord(u'\u309f')},         # Japanese Hiragana
-            {"from": ord(u"\u30a0"), "to": ord(u"\u30ff")},         # Japanese Katakana
-            {"from": ord(u"\u2e80"), "to": ord(u"\u2eff")},         # cjk radicals supplement
-            {"from": ord(u"\u4e00"), "to": ord(u"\u9fff")},
-            {"from": ord(u"\u3400"), "to": ord(u"\u4dbf")},
-            {"from": ord(u"\U00020000"), "to": ord(u"\U0002a6df")},
-            {"from": ord(u"\U0002a700"), "to": ord(u"\U0002b73f")},
-            {"from": ord(u"\U0002b740"), "to": ord(u"\U0002b81f")},
-            {"from": ord(u"\U0002b820"), "to": ord(u"\U0002ceaf")}  # included as of Unicode 8.0  
-            ]
-    return any([range["from"] <= ord(c) <= range["to"] for range in ranges])
+    {"from": ord(u"\u2000"), "to": ord(u"\u206f")}, # punctuation
+    {"from": ord(u"\u3000"), "to": ord(u"\u303f")}, # punctuation cjk
+    # compatibility ideographs
+    {"from": ord(u"\u3300"), "to": ord(u"\u33ff")},
+    {"from": ord(u"\ufe30"), "to": ord(u"\ufe4f")},
+    {"from": ord(u"\uf900"), "to": ord(u"\ufaff")},
+    {"from": ord(u"\U0002F800"), "to": ord(u"\U0002fa1f")}, 
+    {'from': ord(u'\u3040'), 'to': ord(u'\u309f')},# Japanese Hiragana
+    {"from": ord(u"\u30a0"), "to": ord(u"\u30ff")},# Japanese Katakana
+    {"from": ord(u"\u2e80"), "to": ord(u"\u2eff")},# cjk radicals 
+    {"from": ord(u"\u4e00"), "to": ord(u"\u9fff")},
+    {"from": ord(u"\u3400"), "to": ord(u"\u4dbf")},
+    {"from": ord(u"\U00020000"), "to": ord(u"\U0002a6df")},
+    {"from": ord(u"\U0002a700"), "to": ord(u"\U0002b73f")},
+    {"from": ord(u"\U0002b740"), "to": ord(u"\U0002b81f")},
+    {"from": ord(u"\U0002b820"), "to": ord(u"\U0002ceaf")}
+    ]
+    return any(
+        [range["from"] <= ord(c) <= range["to"] 
+        for range in ranges])
 
 def isText(data, encoding="utf-8"):
     try:
@@ -57,7 +57,7 @@ def write_format_text(outpath, ftexts1, ftexts2, *,
         d = max([t['size'] for t in ftexts1])
         size_width = len(hex(d))-2
 
-    fstr1 = "○{num:0"+ str(num_width) + "d}|{addr:0"+ str(addr_width) + "X}|{size:0"+ str(size_width) + "X}○ {text}\n"
+    fstr1 = "○{num:0"+ str(num_width) + "d}|{addr:0" + str(addr_width) + "X}|{size:0"+ str(size_width) + "X}○ {text}\n"
     fstr2 = fstr1.replace('○', '●')
     line_texts = []
 
@@ -75,10 +75,12 @@ def write_format_text(outpath, ftexts1, ftexts2, *,
     for i in range(length):
         if ftexts1 != None:
             t1 = ftexts1[i]
-            line_texts.append(fstr1.format(num=i,addr=t1['addr'],size=t1['size'],text=t1['text']))
+            line_texts.append(fstr1.format(
+                num=i,addr=t1['addr'],size=t1['size'],text=t1['text']))
         if ftexts2 != None:
             t2 = ftexts2[i]
-            line_texts.append(fstr2.format(num=i,addr=t2['addr'],size=t2['size'],text=t2['text']))
+            line_texts.append(fstr2.format(
+                num=i,addr=t2['addr'],size=t2['size'],text=t2['text']))
 
     if outpath != "":
         with codecs.open(outpath, 'w', 'utf-8') as fp:
@@ -117,11 +119,11 @@ def read_format_text(inpath, only_text=False):
             m = re_line1.match(line)
             if m is not None:
                 ftexts1.append({'addr':int(m.group(2),16),
-                                'size':int(m.group(3),16),'text': m.group(4)})
+                    'size':int(m.group(3),16),'text': m.group(4)})
             m = re_line2.match(line)
             if m is not None:
                 ftexts2.append({'addr':int(m.group(2),16),
-                                'size':int(m.group(3),16),'text': m.group(4)})
+                    'size':int(m.group(3),16),'text': m.group(4)})
     return ftexts1, ftexts2
 
 def load_tbl(inpath, encoding='utf-8'):
@@ -143,7 +145,8 @@ def load_tbl(inpath, encoding='utf-8'):
                 elif d>0xff and d<0xffff:
                     charcode = struct.pack(">H", d)
                 else:
-                    charcode = struct.pack(">BBB", d>>16, (d>>8)&0xff, d&0xff)
+                    charcode = struct.pack(">BBB", 
+                        d>>16, (d>>8)&0xff, d&0xff)
                 #print(m.group(1), m.group(2), d)
                 c = m.group(2)
                 tbl.append((charcode, c))
@@ -235,10 +238,12 @@ def extract_text_sjis(data, min_len=2):
     while i<len(data):
         flag_stop = False
         c1 = struct.unpack('<B', data[i:i+1])[0]
-        if (c1 >= 0x20 and c1 <= 0x7f) or (c1 >= 0xa1 and c1 <= 0xdf): # asci
+        if (c1 >= 0x20 and c1 <= 0x7f) or (c1 >= 0xa1 and c1 <= 0xdf): 
+            # asci
             if start == -1: start = i
             i+=1
-        elif (c1 >= 0x81 and c1 <= 0x9f) or (c1 >= 0xe0 and c1 <= 0xef): # sjis
+        elif (c1 >= 0x81 and c1 <= 0x9f) or (c1 >= 0xe0 and c1 <= 0xef): 
+            # sjis
             if i+2>len(data): break
             c2 = struct.unpack('<B', data[i+1:i+2])[0]
             if (c2 >= 0x40 and c2 <= 0x7e) or (c2 >= 0x80 and c2 <= 0xfc): 
@@ -363,8 +368,10 @@ def patch_text(data, ftexts,
         
         if jump_table is not None:
             for t in jump_table:
-                if t['addr'] >= addr: t['addr_new'] = t['addr'] + offset
-                if t['jumpto'] >= addr:  t['jumpto_new'] = t['jumpto'] + offset
+                if t['addr'] >= addr: 
+                    t['addr_new'] = t['addr'] + offset
+                if t['jumpto'] >= addr:  
+                    t['jumpto_new'] = t['jumpto'] + offset
 
         if len(buf) <= size : 
             padding_len = len(padding_bytes)
@@ -433,7 +440,7 @@ def verify_ftext_file(ftextpath, binpath, outpath="verify.txt",
     with codecs.open(outpath, 'w', 'utf-8') as fp:
         for i, ftext in enumerate(ftexts):
             err_str = ""
-            addr, size, text = ftext['addr'], ftext['size'], ftext['text'] 
+            addr,size,text = ftext['addr'],ftext['size'],ftext['text'] 
             _text = None
             if tbl is not None:
                 _text = decode_tbl(data[addr: addr+size], tbl)
@@ -579,32 +586,34 @@ def main():
     method_group.add_argument('-p', '--patch', type=str, 
         help="patch this path by the inpath text, binpath")
     
-    #  encoding method
+    #  util configure
     parser.add_argument('-e', '--encoding', 
         type=str, default='utf-8', 
         help="if using tbl, this encoding is for tbl")
     parser.add_argument('--tbl', type=str, default="", 
         help="custom charcode table")
    
-    # other configure
-    parser.add_argument('--search_file', type=str, default="", 
-        help="search the origin text for replace")
+    # extract configure
     parser.add_argument('--start_addr', type=int, default=0, 
         help="extract text start with this addr")
     parser.add_argument('--end_addr', type=int, default=0, 
         help="extract text end with this addr")
     parser.add_argument('--min_len', type=int, default=2)
+    parser.add_argument('--has_cjk', action='store_true', 
+        help="extract the text with cjk only")
+
+    # patch configure
+    parser.add_argument('--can_longer', action='store_true', 
+        help="inserted text can be longer than the original")
+    parser.add_argument('--search_file', type=str, default="", 
+        help="search the origin text for replace")
     parser.add_argument('--padding_bytes', 
         type=int, default=[0x20], nargs='+',
         help="padding char if import text shorter than origin")
     parser.add_argument('--replace_map', 
         type=str, default=[""], nargs='+', 
         help="replace the char in 'a:b' 'c:d' format")
-    parser.add_argument('--has_cjk', action='store_true', 
-        help="extract the text with cjk only")
-    parser.add_argument('--can_longer', action='store_true', 
-        help="inserted text can be longer than the original")
-    
+
     args = parser.parse_args()
     if args.check:
         check_ftext_file(args.inpath, args.outpath, 
