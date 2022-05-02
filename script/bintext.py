@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.4, developed by devseed
+    v0.5.5, developed by devseed
 """
 
 import struct
@@ -232,7 +232,6 @@ def extract_text_utf8 (data, min_len=3):
 
 def extract_text_sjis(data, min_len=2):
     addrs, texts_data = [], []
-
     i = 0
     start = -1
     while i<len(data):
@@ -265,6 +264,38 @@ def extract_text_sjis(data, min_len=2):
             if start == -1:
                 start = i
 
+    return addrs, texts_data
+
+def extract_unicode(data, min_len=2):
+    addrs, texts_data = [], []
+    i = 0
+    start = -1 
+    while i+2 < len(data):
+        u1,  = struct.unpack('<H', data[i:i+2])
+        if u1 < 0x20:
+            if start != -1:
+                if i-start >= min_len:
+                    print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
+                    addrs.append(start)
+                    texts_data.append(data[start:i])
+                start = -1
+            i += 2
+        elif u1 >= 0x20 and u1 <= 0x7f:
+            if start == -1:  start = i
+            i += 2
+        else:
+            c = data[i:i+2]
+            if isText(c, encoding='utf-16'):
+                if start == -1: start = i
+                i += 2
+            else:
+                if start != -1:
+                    if i-start >= min_len:
+                        print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
+                        addrs.append(start)
+                        texts_data.append(data[start:i])
+                    start = -1
+                i += 2
     return addrs, texts_data
 
 def extract_text_tbl(data, tbl, min_len=2): 
@@ -526,9 +557,13 @@ def extract_ftext_file(binpath, outpath="out.txt",
         elif encoding =="utf-8" :
             addrs, texts_data = extract_text_utf8(
                 data[start_addr: end_addr], min_len=min_len)
-        elif encoding == "sjis" or  encoding == "shift-jis":
+        elif encoding == "sjis":
             addrs, texts_data = extract_text_sjis(
                 data[start_addr: end_addr], min_len=min_len)
+        elif encoding == "unicode":
+            addrs, texts_data = extract_unicode(
+                data[start_addr: end_addr], min_len=min_len)
+            encoding = 'utf-16'
         else: 
             addrs, texts_data = extract_multichar(
                 data[start_addr: end_addr], encoding=encoding, min_len=min_len)
@@ -566,7 +601,7 @@ def debug():
     pass
 
 def main():
-    parser = argparse.ArgumentParser(description="binary text tool v0.4.5 by devseed")
+    parser = argparse.ArgumentParser(description="binary text tool v0.5.5 by devseed")
     
     # input and output
     parser.add_argument('inpath', type=str)
@@ -667,4 +702,5 @@ v0.5.1, fix the problem of other encoding tbl; read_format_text regex in lazy mo
 v0.5.2, add replace_map in patch_text
 v0.5.3, add serach replace text mode by --search_file
 v0.5.4, add extraxt --start, --end parameter
+v0.5.5, add extract_unicode for 0x2 aligned unicode
 """
