@@ -1,6 +1,6 @@
 /*
 windows dyamic hook util functions wrappers
-    v0.2.4, developed by devseed
+    v0.2.5, developed by devseed
 */
 
 #ifndef _WINHOOK_H
@@ -74,8 +74,8 @@ BOOL winhook_patchmemorys(LPVOID addrs[],
     return the matched address, matchend
 */
 WINHOOKDEF WINHOOK_EXPORT
-void* winhook_searchmemory(void* addr, 
-    size_t n, const char* pattern, size_t *pmatchsize);
+void* winhook_searchmemory(void* addr, size_t memsize, 
+    const char* pattern, size_t *pmatchsize);
 
 /* 
     winhook_iathookmodule is for windows dll, 
@@ -97,24 +97,17 @@ BOOL winhook_iathook(LPCSTR targetDllName,
     PROC pfnOrg, PROC pfgNew);
 
 /*
-    using detour for inline hook, 
-    passing the array with NULL end as params, 
-    for example, use pfnOlds[n] for old function invoke
-
-    void(*g_pfnAbout)() = NULL;
-    ULONGLONG rva = 0x11D40;
-    HMODULE hMod = GetModuleHandleA(NULL);
-    PVOID pfnOlds[2] = { (PVOID)((ULONGLONG)hMod + rva), NULL }, pfnNews[2] = { test_hook, NULL };
-    winhook_inlinehooks(pfnOlds, pfnNews, 2);
-    g_pfnAbout = (void(*)())(pfnOlds[0]);
+    inline hooks wrapper, 
+    pfnTargets -> pfnNews, save origin pointers in pfnOlds
 */
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlinehooks(PVOID pfnOlds[], 
-    PVOID pfnNews[], size_t n); 
+int winhook_inlinehooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n);
 
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlineunhooks(PVOID pfnOlds[], 
-    PVOID pfnNews[], size_t n);
+int winhook_inlineunhooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n);
+
 #endif 
 
 #ifdef __cplusplus
@@ -224,13 +217,13 @@ int winhook_patchmemorys(LPVOID addrs[],
     return ret;
 }
 
-void* winhook_searchmemory(void* addr,
-    size_t n, const char* pattern, size_t* pmatchsize)
+void* winhook_searchmemory(void* addr,  size_t memsize, 
+    const char* pattern, size_t* pmatchsize)
 {
-    int i = 0;
+    size_t i = 0;
     int matchend = 0;
     void* matchaddr = NULL;
-    while (i < n)
+    while (i < memsize)
     {
         int j = 0;
         int matchflag = 1;
@@ -325,18 +318,21 @@ BOOL winhook_iathook(LPCSTR targetDllName, PROC pfnOrg, PROC pfnNew)
     return winhook_iathookmodule(targetDllName, NULL, pfnOrg, pfnNew);
 }
 
-#ifndef WINHOOK_NODETOURS
+#ifndef WINHOOK_NOINLINEHOOK
+#ifdef WINHOOK_USEDETOURS
 #include "detours.h"
 WINHOOKDEF WINHOOK_EXPORT 
-int winhook_inlinehooks(PVOID pfnOlds[], PVOID pfnNews[], size_t n)
+int winhook_inlinehooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i=0;
     DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    for(i=0; i<n ;i++)
+    for(int i=0; i<n ;i++)
     {
-        if(!pfnOlds[i]) continue;
+        if(!pfnNews[i]) continue;
+        pfnOlds[i] = pfnTargets[i];
         DetourAttach(&pfnOlds[i], pfnNews[i]);
     }
     DetourTransactionCommit();
@@ -344,20 +340,54 @@ int winhook_inlinehooks(PVOID pfnOlds[], PVOID pfnNews[], size_t n)
 }
 
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlineunhooks(PVOID pfnOlds[], PVOID pfnNews[], size_t n)
+int winhook_inlineunhooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i = 0;
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
     for(i=0; i<n ;i++)
     {
-        if(!pfnOlds[i]) continue;
+        if(!pfnNews[i]) continue;
         DetourDetach(&pfnOlds[i], pfnNews[i]);
     }
     DetourTransactionCommit();
     return i;
 }
+#else // use minhook
+#define MINHOOK_IMPLEMENTATION
+#include "minhook.h"
+WINHOOKDEF WINHOOK_EXPORT 
+int winhook_inlinehooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n)
+{
+    int i;
+    if (MH_Initialize() != MH_OK)  return 0;
+    for(i=0; i<n ;i++)
+    {
+        if(!pfnNews[i]) continue;
+        MH_CreateHook(pfnTargets[i], pfnNews[i], &pfnOlds[i]);
+        MH_EnableHook(pfnTargets[i]);
+    }
+    return i;
+}
+
+WINHOOKDEF WINHOOK_EXPORT
+int winhook_inlineunhooks(PVOID pfnTargets[], 
+    PVOID pfnNews[], PVOID pfnOlds[], size_t n)
+{
+    int i;
+    for(i=0; i<n ;i++)
+    {
+        if(!pfnTargets[i]) continue;
+        MH_DisableHook(pfnTargets[i]);
+    }
+    if(MH_Uninitialize() != MH_OK) return 0;
+    return i;
+}
 #endif
+#endif
+
 #endif
 
 /*
@@ -367,4 +397,5 @@ v0.2 add make this to single file
 v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
 v0.2.3 change name to winhook.h and add guard for function name
 v0.2.4 add winhook_searchmemory
+v0.2.5 add minhook backend, compatible withh gcc, tcc
 */

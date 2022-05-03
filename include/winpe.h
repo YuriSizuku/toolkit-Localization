@@ -549,6 +549,7 @@ inline void* winpe_findkernel32()
     // return (void*)LoadLibrary("kernel32.dll");
     // TEB->PEB->Ldr->InMemoryOrderLoadList->curProgram->ntdll->kernel32
     void *kerenl32 = NULL;
+#ifndef WINPE_NOASM
 #ifdef _WIN64
     __asm{
         mov rax, gs:[60h]; peb
@@ -570,6 +571,7 @@ inline void* winpe_findkernel32()
         mov kerenl32, eax;
     }
 #endif
+#endif
     return kerenl32;
 }
 
@@ -578,6 +580,8 @@ inline void* STDCALL winpe_findmodulea(char *modulename)
 {
     PPEB_LDR_DATA ldr = NULL;
     PLDR_DATA_TABLE_ENTRY ldrentry = NULL;
+
+#ifndef WINPE_NOASM
 #ifdef _WIN64
     __asm{
         mov rax, gs:[60h]; peb
@@ -590,6 +594,7 @@ inline void* STDCALL winpe_findmodulea(char *modulename)
         mov eax, [eax+0ch]; ldr
         mov ldr, eax;
     }
+#endif
 #endif
     // InMemoryOrderModuleList is the second entry
     ldrentry = (PLDR_DATA_TABLE_ENTRY)((size_t)
@@ -1071,7 +1076,7 @@ inline size_t STDCALL winpe_imagesizeval(void *pe, size_t newimagesize)
     PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
     PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
     size_t imagesize = pOptHeader->SizeOfImage;
-    if(newimagesize) pOptHeader->SizeOfImage = newimagesize;
+    if(newimagesize) pOptHeader->SizeOfImage = (DWORD)newimagesize;
     return imagesize; 
 }
 

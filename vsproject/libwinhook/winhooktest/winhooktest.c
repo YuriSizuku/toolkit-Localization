@@ -8,7 +8,7 @@ void test_searchpattern()
 	char* pattern = "22 34??3?\0";
 	size_t matchsize = 0;
 	void *matchaddr = winhook_searchmemory(str, sizeof(str), pattern, &matchsize);
-	printf("test_searchpattern matchaddr=%p, matchsize=%d", matchaddr, matchsize);
+	printf("test_searchpattern matchaddr=%p, matchsize=%x", matchaddr, matchsize);
 }
 
 int main(int argc, char *argv[])

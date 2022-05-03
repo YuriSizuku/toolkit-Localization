@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\libwinhook.c">
+    <ClCompile Include="libwinhook.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
