@@ -2,7 +2,7 @@
 This tool is for parsing windows pe structure, adjust realoc addrs, or iat.
 Most functions are independent by INLINE all parts, 
 so that this can also be used as shellcode
-    v0.3.4, developed by devseed 
+    v0.3.5, developed by devseed 
 */
 
 #ifndef _WINPE_H
@@ -249,6 +249,11 @@ WINPEDEF WINPE_EXPORT
 INLINE void* STDCALL winpe_memfindexp(
     void *mempe, LPCSTR funcname);
 
+
+WINPEDEF WINPE_EXPORT
+INLINE void* STDCALL winpe_memfindexpcrc32(
+    void* mempe, uint32_t crc32);
+
 /*
   forward the exp to the final expva
     return the final exp va
@@ -327,6 +332,13 @@ INLINE size_t STDCALL winpe_appendsecth(
 #include <winternl.h>
 
 // util INLINE functions
+INLINE int STDCALL _inl_strlen(const char* str1)
+{
+    const char* p = str1;
+    while(*p) p++;
+    return p - str1;
+}
+
 INLINE int STDCALL _inl_stricmp(const char *str1, const char *str2)
 {
     int i=0;
@@ -363,6 +375,22 @@ INLINE int STDCALL _inl_stricmp2(const char *str1, const wchar_t* str2)
         }
     }
     return (int)str1[i] - (int)str2[i];
+}
+
+INLINE uint32_t STDCALL _inl_crc32(const void *buf, size_t n)
+{
+    uint32_t crc32 = ~0;
+    for(size_t i=0; i< n; i++)
+    {
+        crc32 ^= *(const uint8_t*)((uint8_t*)buf+i);
+
+        for(int i = 0; i < 8; i++)
+        {
+            uint32_t t = ~((crc32&1) - 1); 
+            crc32 = (crc32>>1) ^ (0xEDB88320 & t);
+        }
+    }
+    return ~crc32;
 }
 
 INLINE void* STDCALL _inl_memset(void *buf, int ch, size_t n)
@@ -602,7 +630,7 @@ INLINE void* STDCALL winpe_findmodulea(char *modulename)
     typedef struct _LDR_ENTRY  // has 3 kinds of pointer link list
     {
         LIST_ENTRY InLoadOrderLinks; // this has link pointer
-        LIST_ENTRY InMemoryOrderLinks; // 顺序都是 program, ntdll, kernel32.dll
+        LIST_ENTRY InMemoryOrderLinks; // order is program, ntdll, kernel32.dll
         LIST_ENTRY InInitializationOrderLinks;//to next entry in same place
         PVOID DllBase; // 0x18, 0x30
         PVOID EntryPoint;
@@ -1033,6 +1061,38 @@ INLINE void* STDCALL winpe_memfindexp(
 }
 
 WINPEDEF WINPE_EXPORT
+INLINE void* STDCALL winpe_memfindexpcrc32(
+    void* mempe, uint32_t crc32)
+{
+    PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)mempe;
+    PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
+        ((uint8_t*)mempe + pDosHeader->e_lfanew);
+    PIMAGE_FILE_HEADER pFileHeader = &pNtHeader->FileHeader;
+    PIMAGE_OPTIONAL_HEADER pOptHeader = &pNtHeader->OptionalHeader;
+    PIMAGE_DATA_DIRECTORY pDataDirectory = pOptHeader->DataDirectory;
+    PIMAGE_DATA_DIRECTORY pExpEntry =
+        &pDataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    PIMAGE_EXPORT_DIRECTORY  pExpDescriptor =
+        (PIMAGE_EXPORT_DIRECTORY)((uint8_t*)mempe + pExpEntry->VirtualAddress);
+
+    WORD* ordrva = (WORD*)((uint8_t*)mempe
+        + pExpDescriptor->AddressOfNameOrdinals);
+    DWORD* namerva = (DWORD*)((uint8_t*)mempe
+        + pExpDescriptor->AddressOfNames);
+    DWORD* funcrva = (DWORD*)((uint8_t*)mempe
+        + pExpDescriptor->AddressOfFunctions);
+    for (DWORD i = 0; i < pExpDescriptor->NumberOfNames; i++)
+    {
+        LPCSTR curname = (LPCSTR)((uint8_t*)mempe + namerva[i]);
+        if (crc32==_inl_crc32(curname, _inl_strlen(curname)))
+        {
+            return (void*)((uint8_t*)mempe + funcrva[ordrva[i]]);
+        }
+    }
+    return NULL;
+}
+
+WINPEDEF WINPE_EXPORT
 INLINE void* STDCALL winpe_memforwardexp(
     void *mempe, size_t exprva, 
     PFN_LoadLibraryA pfnLoadLibraryA, 
@@ -1198,4 +1258,5 @@ v0.3.1, fix the stdcall function name by .def, load memory moudule aligned with 
 v0.3.2, x64 memory load support, winpe_findkernel32, winpe_finmodule by asm
 v0.3.3, add ordinal support in winpe_membindiat, add win_membindtls, change all call to STDCALL
 v0.3.4, add WINPE_NOASM to make compatible for vs x64
+v0.3.5, add winpe_memfindexpcrc32
 */
