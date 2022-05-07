@@ -8,7 +8,8 @@ so that this can also be used as shellcode
 #ifndef _WINPE_H
 #define _WINPE_H
 #include <stdint.h>
-#include <Windows.h>
+#include <windows.h>
+#include <winternl.h>
 
 #ifndef WINPEDEF
 #ifdef WINPE_STATIC
@@ -162,7 +163,9 @@ INLINE void* winpe_findkernel32();
      return ldr module address
 */
 WINPEDEF WINPE_EXPORT
-INLINE void* STDCALL winpe_findmodulea(char *modulename);
+INLINE void* STDCALL winpe_findmoduleaex(
+    PPEB peb, char *modulename);
+#define winpe_findmodulea(modulename) winpe_findmoduleaex(NULL, modulename)
 
 /*
      return LoadLibraryA func addr
@@ -332,14 +335,14 @@ INLINE size_t STDCALL winpe_appendsecth(
 #include <winternl.h>
 
 // util INLINE functions
-INLINE int STDCALL _inl_strlen(const char* str1)
+INLINE int _winpeinl_strlen(const char* str1)
 {
     const char* p = str1;
     while(*p) p++;
     return p - str1;
 }
 
-INLINE int STDCALL _inl_stricmp(const char *str1, const char *str2)
+INLINE int _winpeinl_stricmp(const char *str1, const char *str2)
 {
     int i=0;
     while(str1[i]!=0 && str2[i]!=0)
@@ -358,7 +361,7 @@ INLINE int STDCALL _inl_stricmp(const char *str1, const char *str2)
     return (int)str1[i] - (int)str2[i];
 }
 
-INLINE int STDCALL _inl_stricmp2(const char *str1, const wchar_t* str2)
+INLINE int _winpeinl_stricmp2(const char *str1, const wchar_t* str2)
 {
     int i=0;
     while(str1[i]!=0 && str2[i]!=0)
@@ -377,7 +380,7 @@ INLINE int STDCALL _inl_stricmp2(const char *str1, const wchar_t* str2)
     return (int)str1[i] - (int)str2[i];
 }
 
-INLINE uint32_t STDCALL _inl_crc32(const void *buf, size_t n)
+INLINE uint32_t _winpeinl_crc32(const void *buf, size_t n)
 {
     uint32_t crc32 = ~0;
     for(size_t i=0; i< n; i++)
@@ -393,14 +396,14 @@ INLINE uint32_t STDCALL _inl_crc32(const void *buf, size_t n)
     return ~crc32;
 }
 
-INLINE void* STDCALL _inl_memset(void *buf, int ch, size_t n)
+INLINE void* _winpeinl_memset(void *buf, int ch, size_t n)
 {
     char *p = buf;
     for(size_t i=0;i<n;i++) p[i] = (char)ch;
     return buf;
 }
 
-INLINE void* STDCALL _inl_memcpy(void *dst, const void *src, size_t n)
+INLINE void* _winpeinl_memcpy(void *dst, const void *src, size_t n)
 {
     char *p1 = (char*)dst;
     char *p2 = (char*)src;
@@ -530,7 +533,7 @@ INLINE void* STDCALL winpe_memLoadLibraryEx(void *mempe,
         DWORD oldprotect;
         pfnVirtualProtect((void*)imagebase, imagesize, 
             PAGE_EXECUTE_READWRITE, &oldprotect);
-        _inl_memcpy((void*)imagebase, mempe, imagesize);
+        _winpeinl_memcpy((void*)imagebase, mempe, imagesize);
         pfnVirtualProtect((void*)imagebase, imagesize, 
             oldprotect, &oldprotect);
     }
@@ -625,7 +628,8 @@ INLINE void* winpe_findkernel32()
 }
 
 WINPEDEF WINPE_EXPORT
-INLINE void* STDCALL winpe_findmodulea(char *modulename)
+INLINE void* STDCALL winpe_findmoduleaex(
+    PPEB peb, char *modulename)
 {
     typedef struct _LDR_ENTRY  // has 3 kinds of pointer link list
     {
@@ -655,32 +659,38 @@ INLINE void* STDCALL winpe_findmodulea(char *modulename)
     PLDR_ENTRY ldrentry = NULL;
     PPEB_LDR_DATA ldr = NULL;
 
+
+    if(!peb)
+    {
 #ifndef WINPE_NOASM
 #ifdef _WIN64
-    __asm{
-        mov rax, gs:[60h]; peb
-        mov rax, [rax+18h]; ldr
-        mov ldr, rax
-    }
+            __asm{
+                mov rax, gs:[60h]; peb
+                mov rax, [rax+18h]; ldr
+                mov ldr, rax
+            }
 #else
-    __asm{
-        mov eax, fs:[30h]; peb
-        mov eax, [eax+0ch]; ldr
-        mov ldr, eax;
-    }
+            __asm{
+                mov eax, fs:[30h]; peb
+                mov eax, [eax+0ch]; ldr
+                mov ldr, eax;
+            }
 #endif
 #else
-    PTEB teb = NtCurrentTeb(); 
-    PPEB peb = NULL;
+            PTEB teb = NtCurrentTeb(); 
 #ifdef _WIN64
-    peb = *(PPEB*)((uint8_t*)teb + 0x60);
-    ldr = *(PPEB_LDR_DATA*)((uint8_t*)peb + 0x18);
-
+            peb = *(PPEB*)((uint8_t*)teb + 0x60);
 #else
-    peb = *(PPEB*)((uint8_t*)teb + 0x30);
-    ldr = *(PPEB_LDR_DATA*)((uint8_t*)peb + 0xc);
+            peb = *(PPEB*)((uint8_t*)teb + 0x30);
 #endif 
 #endif
+    }
+
+#ifdef _WIN64
+    ldr = *(PPEB_LDR_DATA*)((uint8_t*)peb + 0x18);
+#else
+    ldr = *(PPEB_LDR_DATA*)((uint8_t*)peb + 0xC);
+#endif 
 
     // InMemoryOrderModuleList is the second entry
     ldrentry = (PLDR_ENTRY)((size_t)
@@ -696,7 +706,7 @@ INLINE void* STDCALL winpe_findmodulea(char *modulename)
         int i;
         for(i=ustr->Length/2-1; i>0 && ustr->Buffer[i]!='\\';i--);
         if(ustr->Buffer[i]=='\\') i++;
-        if(_inl_stricmp2(modulename,  ustr->Buffer + i)==0)
+        if(_winpeinl_stricmp2(modulename,  ustr->Buffer + i)==0)
         {
             return ldrentry->DllBase;
         }
@@ -784,12 +794,12 @@ INLINE size_t STDCALL winpe_memload(
     if(!mempe) return imagesize;
     else if(memsize!=0 && memsize<imagesize) return 0;
 
-    _inl_memset(mempe, 0, imagesize);
-    _inl_memcpy(mempe, rawpe, pOptHeader->SizeOfHeaders);
+    _winpeinl_memset(mempe, 0, imagesize);
+    _winpeinl_memcpy(mempe, rawpe, pOptHeader->SizeOfHeaders);
     
     for(WORD i=0;i<sectNum;i++)
     {
-        _inl_memcpy((uint8_t*)mempe+pSectHeader[i].VirtualAddress,
+        _winpeinl_memcpy((uint8_t*)mempe+pSectHeader[i].VirtualAddress,
             (uint8_t*)rawpe+pSectHeader[i].PointerToRawData,
             pSectHeader[i].SizeOfRawData);
     }
@@ -992,7 +1002,7 @@ INLINE void* STDCALL winpe_memfindiat(void *mempe,
     for (; pImpDescriptor->Name; pImpDescriptor++) 
     {
         pDllName = (LPCSTR)((uint8_t*)mempe + pImpDescriptor->Name);
-        if(dllname && _inl_stricmp(pDllName, dllname)!=0) continue;
+        if(dllname && _winpeinl_stricmp(pDllName, dllname)!=0) continue;
         pFtThunk = (PIMAGE_THUNK_DATA)
             ((uint8_t*)mempe + pImpDescriptor->FirstThunk);
         pOftThunk = (PIMAGE_THUNK_DATA)
@@ -1011,7 +1021,7 @@ INLINE void* STDCALL winpe_memfindiat(void *mempe,
             }
             else
             {
-                if(_inl_stricmp(pImpByName->Name, funcname)==0) 
+                if(_winpeinl_stricmp(pImpByName->Name, funcname)==0) 
                     return &pFtThunk[j];
             }
         }
@@ -1051,7 +1061,7 @@ INLINE void* STDCALL winpe_memfindexp(
         for(DWORD i=0;i<pExpDescriptor->NumberOfNames;i++)
         {
             LPCSTR curname = (LPCSTR)((uint8_t*)mempe+namerva[i]);
-            if(_inl_stricmp(curname, funcname)==0)
+            if(_winpeinl_stricmp(curname, funcname)==0)
             {
                 return (void*)((uint8_t*)mempe + funcrva[ordrva[i]]);
             }       
@@ -1084,7 +1094,7 @@ INLINE void* STDCALL winpe_memfindexpcrc32(
     for (DWORD i = 0; i < pExpDescriptor->NumberOfNames; i++)
     {
         LPCSTR curname = (LPCSTR)((uint8_t*)mempe + namerva[i]);
-        if (crc32==_inl_crc32(curname, _inl_strlen(curname)))
+        if (crc32==_winpeinl_crc32(curname, _winpeinl_strlen(curname)))
         {
             return (void*)((uint8_t*)mempe + funcrva[ordrva[i]]);
         }
@@ -1235,7 +1245,7 @@ INLINE size_t STDCALL winpe_appendsecth(void *pe,
 
     // adjust the section and imagesize 
     pFileHeader->NumberOfSections++;
-    _inl_memcpy(&pSectHeader[sectNum], psecth, sizeof(IMAGE_SECTION_HEADER));
+    _winpeinl_memcpy(&pSectHeader[sectNum], psecth, sizeof(IMAGE_SECTION_HEADER));
     align = pOptHeader->SectionAlignment;
     addr = psecth->VirtualAddress + psecth->Misc.VirtualSize;
     if(addr % align) addr += align - addr%align;

@@ -1,11 +1,11 @@
 /*
 windows dyamic hook util functions wrappers
-    v0.2.5, developed by devseed
+    v0.2.7, developed by devseed
 */
 
 #ifndef _WINHOOK_H
 #define _WINHOOK_H
-#include <Windows.h>
+#include <windows.h>
 
 #ifndef WINHOOKDEF
 #ifdef WINHOOK_STATIC
@@ -25,65 +25,95 @@ windows dyamic hook util functions wrappers
 #endif
 #endif
 
+#if defined(_MSC_VER) && defined(WINHOOK_SHELLCODE)
+#define INLINE inline
+#else  // tcc, gcc not support inline export ...
+#define INLINE
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 // loader functions
-/* 
-    start a exe by CreateProcess
+/*
+    start a exe and inject dll into exe
+    return pid
 */
-WINHOOKDEF WINHOOK_EXPORT 
-HANDLE winhook_startexe(LPCSTR exepath, LPSTR cmdstr);
+WINHOOKDEF WINHOOK_EXPORT
+INLINE DWORD winhook_startexeinject(LPCSTR exepath,
+    LPSTR cmdstr, LPCSTR dllpath);
+
+/*
+    start a exe by CreateProcess
+    return pid
+*/
+#define winhook_startexe(exepath, cmdstr)\
+    winhook_startexeinject(exepath, cmdstr, NULL)
 
 /*
     get the process handle by exename
 */
 WINHOOKDEF WINHOOK_EXPORT 
-HANDLE winhook_getprocess(LPCWSTR exename); 
+INLINE HANDLE winhook_getprocess(LPCWSTR exename);
 
 /*
     dynamic inject a dll into a process
  */ 
 WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_injectdll(HANDLE hProcess, LPCSTR dllname); 
+INLINE BOOL winhook_injectdll(HANDLE hprocess, LPCSTR dllname);
 
 /*
     alloc a console for the program
 */
 WINHOOKDEF WINHOOK_EXPORT 
-void winhook_installconsole();
+INLINE void winhook_installconsole();
 
 
 // dynamic hook functions
 /*
     winhook_patchmemory, patch addr by buf with bufsize
 */
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_patchmemory(LPVOID addr, 
-    void* buf, size_t bufsize);
+WINHOOKDEF WINHOOK_EXPORT
+INLINE BOOL winhook_patchmemoryex(HANDLE hprocess,
+    LPVOID addr, void* buf, size_t bufsize);
+
+#define winhook_patchmemory(addr, buf, bufsize)\
+    winhook_patchmemoryex(GetCurrentProcess(), addr, buf, bufsize)
 
 /*
     winhook_patchmemorys, batch patch memories
 */
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_patchmemorys(LPVOID addrs[], 
-    void* bufs[], size_t bufsizes[], int n);
+WINHOOKDEF WINHOOK_EXPORT
+INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
+    LPVOID addrs[], void* bufs[], 
+    size_t bufsizes[], int n);
+
+#define winhook_patchmemorys(addrs, bufs, bufsizes, n)\
+    winhook_patchmemorysex(GetCurrentProcess(), addrs, bufs, bufsizes, n)
 
 /*
     winhook_searchpattern, search the pattern like "ab 12 ?? 34"
     return the matched address, matchend
 */
 WINHOOKDEF WINHOOK_EXPORT
-void* winhook_searchmemory(void* addr, size_t memsize, 
+INLINE void* winhook_searchmemory(void* addr, size_t memsize,
     const char* pattern, size_t *pmatchsize);
+
+WINHOOKDEF WINHOOK_EXPORT
+INLINE void* winhook_searchmemoryex(HANDLE hprocess,
+    void* addr, size_t memsize,
+    const char* pattern, size_t* pmatchsize);
 
 /* 
     winhook_iathookmodule is for windows dll, 
     moduleDllName is which dll to hook iat
 */
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_iathookmodule(LPCSTR targetDllName, 
-    LPCSTR moduleDllName, PROC pfnOrg, PROC pfnNew);
+WINHOOKDEF WINHOOK_EXPORT
+INLINE BOOL winhook_iathookpe(LPCSTR targetDllName,
+    void* mempe, PROC pfnOrg, PROC pfnNew);
+
+#define winhook_iathookmodule(targetDllName, moduleDllName, pfnOrg, pfnNew)\
+    winhook_iathookpe(targetDllName, GetModuleHandle(moduleDllName), pfnOrg, pfnNew)
 
 /*
     iat dynamiclly hook, 
@@ -92,20 +122,19 @@ BOOL winhook_iathookmodule(LPCSTR targetDllName,
     winhook_iathook is for windows EXE, 
     targetDllName is like "user32.dll", "kernel32.dll"
 */
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_iathook(LPCSTR targetDllName, 
-    PROC pfnOrg, PROC pfgNew);
+#define winhook_iathook(targetDllName, pfnOrg, pfgNew)\
+    winhook_iathookmodule(targetDllName, NULL, pfnOrg, pfgNew)
 
 /*
     inline hooks wrapper, 
     pfnTargets -> pfnNews, save origin pointers in pfnOlds
 */
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlinehooks(PVOID pfnTargets[], 
+int winhook_inlinehooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n);
 
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlineunhooks(PVOID pfnTargets[], 
+int winhook_inlineunhooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n);
 
 #endif 
@@ -117,25 +146,110 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
 #ifdef WINHOOK_IMPLEMENTATION
 #include <stdio.h>
 #include <stdint.h>
-#include <Windows.h>
+#include <windows.h>
+#include <winternl.h>
 #include <tlhelp32.h>
 
-// loader functions
-WINHOOKDEF WINHOOK_EXPORT 
-HANDLE winhook_startexe(LPCSTR exepath, LPSTR cmdstr)
+// util functions
+INLINE int _winhookinl_strlen(const char* str1)
 {
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof(pi));
-    ZeroMemory(&si, sizeof(si));
-    if (!CreateProcessA(exepath, cmdstr, 
-        NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-        return NULL;
-    return pi.hProcess;
+    const char* p = str1;
+    while (*p) p++;
+    return p - str1;
+}
+
+INLINE int _winhookinl_stricmp(const char* str1, const char* str2)
+{
+    int i = 0;
+    while (str1[i] != 0 && str2[i] != 0)
+    {
+        if (str1[i] == str2[i]
+            || str1[i] + 0x20 == str2[i]
+            || str2[i] + 0x20 == str1[i])
+        {
+            i++;
+        }
+        else
+        {
+            return (int)str1[i] - (int)str2[i];
+        }
+    }
+    return (int)str1[i] - (int)str2[i];
+}
+
+#ifdef WINHOOK_SHELLCODE
+#include "winapi.h"
+#define strlen _winhookinl_strlen
+#define _stricmp _winhookinl_stricmp
+
+#endif
+
+// loader functions
+WINHOOKDEF WINHOOK_EXPORT
+INLINE DWORD winhook_startexeinject(LPCSTR exepath,
+    LPSTR cmdstr, LPCSTR dllpath)
+{
+    STARTUPINFOA si = {0};
+    PROCESS_INFORMATION pi = {0};
+    si.cb = sizeof(STARTUPINFOA);
+    if (!CreateProcessA(exepath, cmdstr,
+        NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+        return 0;
+
+    if (dllpath) // inject dll to process
+    {
+        size_t n = 0;
+        HANDLE hprocess = pi.hProcess;
+        HANDLE hthread = pi.hThread;
+        LPVOID injectaddr = VirtualAllocEx(hprocess,
+            0, 0x1000, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        size_t oepva = 0;
+
+        // prepare shellcode 
+        CONTEXT context = { 0 };
+        context.ContextFlags = CONTEXT_ALL;
+        GetThreadContext(hthread, &context);
+#ifdef _WIN64
+        uint8_t injectcode[] = {0x50,0x53,0x51,0x52,0xe8,0x2d,0x00,0x00,0x00,0x48,0x8d,0x58,0xf7,0x48,0x83,0xec,0x28,0x48,0x8b,0x8b,0x43,0x00,0x00,0x00,0x48,0x8b,0x83,0x4b,0x00,0x00,0x00,0xff,0xd0,0x48,0x83,0xc4,0x28,0x48,0x8b,0x83,0x3b,0x00,0x00,0x00,0x49,0x89,0xc7,0x5a,0x59,0x5b,0x58,0x41,0xff,0xe7,0x48,0x8b,0x04,0x24,0xc3,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90 };
+        oepva = context.Rip; 
+        context.Rip = (ULONGLONG)injectaddr;
+
+#else
+        uint8_t injectcode[] = {0x50,0x53,0xe8,0x1e,0x00,0x00,0x00,0x8d,0x58,0xf9,0x8b,0x83,0x2d,0x00,0x00,0x00,0x50,0x8b,0x83,0x31,0x00,0x00,0x00,0xff,0xd0,0x8b,0x83,0x29,0x00,0x00,0x00,0x89,0xc7,0x5b,0x58,0xff,0xe7,0x8b,0x04,0x24,0xc3,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90 };
+        oepva = context.Eip; // origin eip at RtlUserThreadStart
+        context.Eip = (DWORD)injectaddr; 
+#endif
+        SetThreadContext(hthread, &context);
+
+        char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '\0' };
+        HMODULE kernel32 = GetModuleHandleA(name_kernel32);
+        char name_LoadLibraryA[] = { 'L', 'o', 'a', 'd', 'L', 'i', 'b', 'r', 'a', 'r', 'y', 'A', '\0' };
+        FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, name_LoadLibraryA);
+        size_t* pretva = (size_t*)(injectcode 
+            + sizeof(injectcode) - 3 * sizeof(size_t));
+        size_t *pdllnameva = (size_t*)(injectcode 
+            + sizeof(injectcode) - 2 * sizeof(size_t));
+        size_t* ploadlibraryva = (size_t*)(injectcode 
+            + sizeof(injectcode) - 1 * sizeof(size_t));
+        *pretva = (size_t)oepva;
+        *pdllnameva = (size_t)((size_t)injectaddr + sizeof(injectcode));
+        *ploadlibraryva = (size_t)pfnLoadlibraryA;
+
+        uint8_t* addr = (uint8_t*)injectaddr;
+        WriteProcessMemory(hprocess, addr,
+            injectcode, sizeof(injectcode), (SIZE_T*)&n); // copy shellcode
+        addr += sizeof(injectcode);
+        WriteProcessMemory(hprocess, addr,
+            dllpath, strlen(dllpath) + 1, (SIZE_T*)&n); // copy dll name
+    }
+
+    ResumeThread(pi.hThread);
+    CloseHandle(pi.hThread);
+    return pi.dwProcessId;
 }
 
 WINHOOKDEF WINHOOK_EXPORT 
-HANDLE winhook_getprocess(LPCWSTR exename)
+INLINE HANDLE winhook_getprocess(LPCWSTR exename)
 {
     // Create toolhelp snapshot.
     DWORD pid = 0;
@@ -162,62 +276,71 @@ HANDLE winhook_getprocess(LPCWSTR exename)
 }
 
 WINHOOKDEF WINHOOK_EXPORT
-BOOL winhook_injectdll(HANDLE hProcess, LPCSTR dllname)
+INLINE BOOL winhook_injectdll(HANDLE hprocess, LPCSTR dllname)
 {
-    LPVOID param_addr = VirtualAllocEx(hProcess, 0, 0x100, MEM_COMMIT, PAGE_READWRITE);
+    LPVOID addr = VirtualAllocEx(hprocess, 
+        0, 0x100, MEM_COMMIT, PAGE_READWRITE);
     SIZE_T count;
-    if (param_addr == NULL) return FALSE;
-    WriteProcessMemory(hProcess, param_addr, dllname, strlen(dllname)+1, &count);
+    if (addr == NULL) return FALSE;
+    WriteProcessMemory(hprocess, 
+        addr, dllname, strlen(dllname)+1, (SIZE_T*)&count);
 
-    HMODULE kernel32 = GetModuleHandleA("Kernel32");
-    FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, "LoadLibraryA");
-    HANDLE threadHandle = CreateRemoteThread(hProcess, NULL, 0, 
-        (LPTHREAD_START_ROUTINE)pfnLoadlibraryA, param_addr, 0, NULL); 
+    char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '\0' };
+    HMODULE kernel32 = GetModuleHandleA(name_kernel32);
+    char name_LoadLibraryA[] = { 'L', 'o', 'a', 'd', 'L', 'i', 'b', 'r', 'a', 'r', 'y', 'A', '\0' };
+    FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, name_LoadLibraryA);
+    HANDLE hthread = CreateRemoteThread(hprocess, NULL, 0, 
+        (LPTHREAD_START_ROUTINE)pfnLoadlibraryA, addr, 0, NULL); 
    
-    if (threadHandle == NULL) return FALSE;
-    WaitForSingleObject(threadHandle, -1);
-    VirtualFreeEx(hProcess, param_addr, 0x100, MEM_COMMIT);
+    if (hthread == NULL) return FALSE;
+    WaitForSingleObject(hthread, -1);
+    VirtualFreeEx(hprocess, addr, 0x100, MEM_COMMIT);
 
     return TRUE;
 }
 
 WINHOOKDEF WINHOOK_EXPORT 
-void winhook_installconsole()
+INLINE void winhook_installconsole()
 {
     AllocConsole();
     freopen("CONOUT$", "w", stdout);    
 }
 
 // dynamic hook functions
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_patchmemory(LPVOID addr, 
-    void* buf, size_t bufsize)
+WINHOOKDEF WINHOOK_EXPORT
+INLINE BOOL winhook_patchmemoryex(HANDLE hprocess,
+    LPVOID addr, void* buf, size_t bufsize)
 {
-    if(addr==NULL || buf==NULL) return FALSE;
-	DWORD oldprotect;
-    BOOL ret = VirtualProtect(addr, bufsize, PAGE_EXECUTE_READWRITE, &oldprotect);
-	if(ret)
-	{
-		CopyMemory(addr, buf, bufsize);
-        VirtualProtect(addr, bufsize, oldprotect, &oldprotect);
-	}
+    if (addr == NULL || buf == NULL) return FALSE;
+    DWORD oldprotect;
+    BOOL ret = VirtualProtectEx(hprocess, addr,
+        bufsize, PAGE_EXECUTE_READWRITE, &oldprotect);
+    if (ret)
+    {
+        size_t n = 0;
+        WriteProcessMemory(hprocess, addr, 
+            buf, bufsize, (SIZE_T*)&n);
+        VirtualProtectEx(hprocess, addr,
+            bufsize, oldprotect, &oldprotect);
+    }
     return ret;
 }
 
-WINHOOKDEF WINHOOK_EXPORT 
-int winhook_patchmemorys(LPVOID addrs[], 
-    void* bufs[], size_t bufsizes[], int n)
+WINHOOKDEF WINHOOK_EXPORT
+INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
+    LPVOID addrs[], void* bufs[],
+    size_t bufsizes[], int n)
 {
     int ret = 0;
-    for(int i=0; i<n;i++)
+    for (int i = 0; i < n; i++)
     {
-        ret += winhook_patchmemory(
+        ret += winhook_patchmemoryex(hprocess,
             addrs[i], bufs[i], bufsizes[i]);
     }
     return ret;
 }
 
-void* winhook_searchmemory(void* addr,  size_t memsize, 
+void* winhook_searchmemory(void* addr, size_t memsize, 
     const char* pattern, size_t* pmatchsize)
 {
     size_t i = 0;
@@ -269,11 +392,29 @@ void* winhook_searchmemory(void* addr,  size_t memsize,
     return matchaddr;
 }
 
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_iathookmodule(LPCSTR targetDllName, 
-    LPCSTR moduleDllName, PROC pfnOrg, PROC pfnNew)
+WINHOOKDEF WINHOOK_EXPORT
+INLINE void* winhook_searchmemoryex(HANDLE hprocess,
+    void* addr, size_t memsize,
+    const char* pattern, size_t* pmatchsize)
 {
-    size_t imageBase = (size_t)GetModuleHandleA(moduleDllName);
+    void* buf = VirtualAlloc(NULL, 
+        memsize, MEM_COMMIT, PAGE_READWRITE);
+    size_t bufsize = 0;
+    ReadProcessMemory(hprocess, addr, 
+        buf, memsize, (SIZE_T*)&bufsize);
+    void* matchaddr = winhook_searchmemory(
+        buf, memsize, pattern, pmatchsize);
+    VirtualFree(buf, 0, MEM_RELEASE);
+    if (!matchaddr) return matchaddr;
+    size_t offset = (size_t)matchaddr - (size_t)buf;
+    return (void*)((uint8_t*)addr + offset);
+}
+
+WINHOOKDEF WINHOOK_EXPORT 
+INLINE BOOL winhook_iathookpe(LPCSTR targetDllName,
+    void* mempe, PROC pfnOrg, PROC pfnNew)
+{
+    size_t imageBase = (size_t)mempe;
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)imageBase;
     PIMAGE_NT_HEADERS  pNtHeader = (PIMAGE_NT_HEADERS)
         ((uint8_t*)imageBase + pDosHeader->e_lfanew);
@@ -312,17 +453,11 @@ BOOL winhook_iathookmodule(LPCSTR targetDllName,
     return FALSE;
 }
 
-WINHOOKDEF WINHOOK_EXPORT 
-BOOL winhook_iathook(LPCSTR targetDllName, PROC pfnOrg, PROC pfnNew)
-{
-    return winhook_iathookmodule(targetDllName, NULL, pfnOrg, pfnNew);
-}
-
 #ifndef WINHOOK_NOINLINEHOOK
 #ifdef WINHOOK_USEDETOURS
 #include "detours.h"
 WINHOOKDEF WINHOOK_EXPORT 
-int winhook_inlinehooks(PVOID pfnTargets[], 
+int winhook_inlinehooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i=0;
@@ -340,7 +475,7 @@ int winhook_inlinehooks(PVOID pfnTargets[],
 }
 
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlineunhooks(PVOID pfnTargets[], 
+int winhook_inlineunhooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i = 0;
@@ -358,7 +493,7 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
 #define MINHOOK_IMPLEMENTATION
 #include "minhook.h"
 WINHOOKDEF WINHOOK_EXPORT 
-int winhook_inlinehooks(PVOID pfnTargets[], 
+int winhook_inlinehooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i;
@@ -373,7 +508,7 @@ int winhook_inlinehooks(PVOID pfnTargets[],
 }
 
 WINHOOKDEF WINHOOK_EXPORT
-int winhook_inlineunhooks(PVOID pfnTargets[], 
+int winhook_inlineunhooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i;
@@ -398,4 +533,6 @@ v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
 v0.2.3 change name to winhook.h and add guard for function name
 v0.2.4 add winhook_searchmemory
 v0.2.5 add minhook backend, compatible withh gcc, tcc
+v0.2.6 support function to patch or search other process memory
+v0.2.7 add win_startexeinject
 */

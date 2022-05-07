@@ -11,6 +11,7 @@ The building example is in `./vsproject`.  As the visual studio doesn't support 
 * `texture.py`, something about texture and picture convert  
 * `listmagic.py`, list the files magic to analyze  
 * `textconvert.py`, convert the encoding of text file  
+* `shellcode.py`, some method for generating shellcode, such as parsing `coff` object file
 
 ## windows tools
 

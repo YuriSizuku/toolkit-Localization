@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.31613.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwinpe", "libwinpe\libwinpe.vcxproj", "{F5BA2655-5138-436C-87FE-8EF75AD1A2CE}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_winpe", "test_winpe\test_winpe.vcxproj", "{E2B4EBF4-169A-473F-936E-D95DA3E861A3}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{E2B4EBF4-169A-473F-936E-D95DA3E861A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
