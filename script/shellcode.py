@@ -8,6 +8,7 @@ import os
 import sys
 import struct
 import codecs
+from typing import Union, List, Dict
 
 class coff_filehdr_t(struct.Struct):
     def __init__(self, data):
@@ -101,7 +102,7 @@ class Coff:
                 yield funcname, offset, size, \
                     data[offset: offset+size]
 
-def extract_coff(objpath, killat=True):
+def extract_coff(objpath, killat=True) -> Dict[str, bytes]:
     """
     parser all functions in coff obj format files
     use clang -c -O3 -ffunction-sections -fdata-sections
@@ -123,8 +124,39 @@ def extract_coff(objpath, killat=True):
         codes.update({funcname: content})
     return codes
 
-def write_shellcode_header(codes: dict(), 
-    /, outname="", outpath="", onlycode=False):
+def code2arraystr(code: Union[bytes, List[int]], format="c") -> str: 
+    arraystr = ""
+    if format.lower() == "c":
+        arraystr = ",".join([f'0x{x:02x}' for x in code])
+    elif format.lower() == "py" or format.lower() == "python":
+        arraystr = "".join([f'\\x{x:02x}' for x in code])
+    elif format.lower() == "hex":
+        arraystr = " ".join([f'{x:02x}' for x in code])
+    else: 
+        raise NotImplementedError(f"unkonw format{format}")
+    return arraystr
+
+def arraystr2code(arraystr:str, format="c") -> List[int]:
+    code = []
+    if format.lower() == "c":
+        tokens = arraystr.split(',')
+        for token in tokens:
+            try:
+                code.append(eval(token.strip(' ')))
+            except SyntaxError:
+                code.append(eval(token.strip(' ').lstrip('0')))
+    elif format.lower() == "py" or format.lower() == "python":
+        code = list(eval(f"b'{arraystr}'"))
+    elif format.lower() == "hex":
+        for i, c in enumerate(arraystr.replace(' ', '')):
+            if i%2==0: c0 = c
+            else: code.append(int(c0 + c, 16))
+    else: 
+        raise NotImplementedError(f"unkonw format{format}")
+    return code
+
+def write_shellcode_header(codes: Dict[str, Union[List[int], bytes]], 
+    /, outname="", outpath="", onlycode=False) -> List[str]:
     """
     write the shell code to .h file
     :param: codes, {name: code}
@@ -150,18 +182,40 @@ def write_shellcode_header(codes: dict(),
 
     return lines
 
+def test_codecvt():
+    a0 = [1,2,3,4]
+    a1 = code2arraystr(a0, "c")
+    a2 = arraystr2code(a1, "c")
+    print("test_codecvt c: ", a0, a1, a2)
+    assert(a0 == a2)
+
+    a1 = code2arraystr(a0, "py")
+    a2 = arraystr2code(a1, "py")
+    print("test_codecvt py: ", a0, a1, a2)
+    assert(a0 == a2)
+
+    a1 = code2arraystr(a0, "hex")
+    a2 = arraystr2code(a1, "hex")
+    print("test_codecvt hex: ", a0, a1, a2)
+    assert(a0 == a2)
+    
+    aa = arraystr2code("0x22,  0x3,04, 0b1111, 235, 44, 0x22,33", "c")
+    assert(aa == [0x22, 0x3, 4, 0b1111, 235, 44, 0x22, 33])
+    print(aa)
+
 def debug():
-    pass
+    test_codecvt()
 
 def main():
     pass
 
 if __name__ == '__main__':
-    # debug()
+    #debug()
     main()
     pass
 
 """
 history:
 v0.1, inital version parse .obj file
+v0.1.1, add code2arraystr, arraystr2code
 """
