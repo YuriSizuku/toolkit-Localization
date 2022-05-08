@@ -1,5 +1,6 @@
 #define WINHOOK_IMPLEMENTATION
-#define WINHOOK_NODETOURS
+#define WINHOOK_NOINLINEHOOK
+#define WINHOOK_USESHELLCODE
 #include "winhook.h"
 
 void test_searchpattern()
@@ -19,9 +20,16 @@ void test_startexeinject()
 	DWORD pid = winhook_startexeinject("hello.exe", NULL, "hello.dll");
 }
 
+void test_windyn()
+{
+#ifdef WINDYN_IMPLEMENTATION
+#endif
+}
+
 int main(int argc, char *argv[])
 {
 	test_searchpattern();
 	test_startexeinject();
+	test_windyn();
 	return 0;
 }

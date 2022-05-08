@@ -11,6 +11,7 @@ __pycache__
 *.ilk
 .vs
 .vscodes
+/sln/**/bin/*
 /sln/**/x64/*
 /sln/**/Debug/*
 /sln/**/Release/*

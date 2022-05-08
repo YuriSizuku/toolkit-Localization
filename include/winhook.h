@@ -25,10 +25,16 @@ windows dyamic hook util functions wrappers
 #endif
 #endif
 
-#if defined(_MSC_VER) && defined(WINHOOK_SHELLCODE)
-#define INLINE inline
+#ifndef INLINE
+#ifdef WINHOOK_USESHELLCODE
+#if defined(_MSC_VER)
+#define INLINE __forceinline
 #else  // tcc, gcc not support inline export ...
 #define INLINE
+#endif
+#else
+#define INLINE
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -150,38 +156,17 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
 #include <winternl.h>
 #include <tlhelp32.h>
 
-// util functions
-INLINE int _winhookinl_strlen(const char* str1)
-{
-    const char* p = str1;
-    while (*p) p++;
-    return p - str1;
-}
-
-INLINE int _winhookinl_stricmp(const char* str1, const char* str2)
-{
-    int i = 0;
-    while (str1[i] != 0 && str2[i] != 0)
-    {
-        if (str1[i] == str2[i]
-            || str1[i] + 0x20 == str2[i]
-            || str2[i] + 0x20 == str1[i])
-        {
-            i++;
-        }
-        else
-        {
-            return (int)str1[i] - (int)str2[i];
-        }
-    }
-    return (int)str1[i] - (int)str2[i];
-}
-
-#ifdef WINHOOK_SHELLCODE
-#include "winapi.h"
-#define strlen _winhookinl_strlen
-#define _stricmp _winhookinl_stricmp
-
+#ifdef WINHOOK_USESHELLCODE
+#define WINDYN_IMPLEMENTATION
+#define WINDYN_STATIC
+#include "windyn.h"
+#define strlen windyn_strlen
+#define _stricmp windyn_stricmp
+#define _wcsicmp windyn_wcsicmp
+#define GetModuleHandleA windyn_GetModuleHandleA
+#define LoadLibraryA windyn_LoadLibraryA
+#define GetProcAddress windyn_GetProcAddress
+#define VirtualAllocEx windyn_VirtualAllocEx
 #endif
 
 // loader functions
@@ -221,7 +206,7 @@ INLINE DWORD winhook_startexeinject(LPCSTR exepath,
 #endif
         SetThreadContext(hthread, &context);
 
-        char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '\0' };
+        char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '.', 'd', 'l', 'l', '\0'};
         HMODULE kernel32 = GetModuleHandleA(name_kernel32);
         char name_LoadLibraryA[] = { 'L', 'o', 'a', 'd', 'L', 'i', 'b', 'r', 'a', 'r', 'y', 'A', '\0' };
         FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, name_LoadLibraryA);
@@ -263,7 +248,7 @@ INLINE HANDLE winhook_getprocess(LPCWSTR exename)
     {
         do
         {
-            if (wcscmp((const wchar_t*)process.szExeFile, exename) == 0)
+            if (_wcsicmp((const wchar_t*)process.szExeFile, exename) == 0)
             {
                 pid = process.th32ProcessID;
                 break;
@@ -285,7 +270,7 @@ INLINE BOOL winhook_injectdll(HANDLE hprocess, LPCSTR dllname)
     WriteProcessMemory(hprocess, 
         addr, dllname, strlen(dllname)+1, (SIZE_T*)&count);
 
-    char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '\0' };
+    char name_kernel32[] = { 'k', 'e', 'r', 'n', 'e', 'l', '3', '2', '.', 'd', 'l', 'l', '\0' };
     HMODULE kernel32 = GetModuleHandleA(name_kernel32);
     char name_LoadLibraryA[] = { 'L', 'o', 'a', 'd', 'L', 'i', 'b', 'r', 'a', 'r', 'y', 'A', '\0' };
     FARPROC pfnLoadlibraryA = GetProcAddress(kernel32, name_LoadLibraryA);
@@ -340,7 +325,7 @@ INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
     return ret;
 }
 
-void* winhook_searchmemory(void* addr, size_t memsize, 
+INLINE void* winhook_searchmemory(void* addr, size_t memsize,
     const char* pattern, size_t* pmatchsize)
 {
     size_t i = 0;

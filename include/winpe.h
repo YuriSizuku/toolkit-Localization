@@ -30,17 +30,27 @@ so that this can also be used as shellcode
 #endif
 
 #if defined(_WIN32)
+#ifndef STDCALL
 #define STDCALL __stdcall
+#endif
+#ifdef NAKED
 #define NAKED __declspec(naked)
+#endif
 #else
+#ifndef STDCALL
 #define STDCALL __attribute__((stdcall))
+#endif
+#ifdef NAKED
 #define NAKED __attribute__((naked))
 #endif
+#endif
 
+#ifndef INLINE
 #if defined(_MSC_VER) 
-#define INLINE inline
-#else  // tcc, gcc not support inline export ...
+#define INLINE __forceinline
+#else  // tcc, gcc not support inline export, tcc inline will output nofunction ...
 #define INLINE
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -662,28 +672,12 @@ INLINE void* STDCALL winpe_findmoduleaex(
 
     if(!peb)
     {
-#ifndef WINPE_NOASM
-#ifdef _WIN64
-            __asm{
-                mov rax, gs:[60h]; peb
-                mov rax, [rax+18h]; ldr
-                mov ldr, rax
-            }
-#else
-            __asm{
-                mov eax, fs:[30h]; peb
-                mov eax, [eax+0ch]; ldr
-                mov ldr, eax;
-            }
-#endif
-#else
             PTEB teb = NtCurrentTeb(); 
 #ifdef _WIN64
             peb = *(PPEB*)((uint8_t*)teb + 0x60);
 #else
             peb = *(PPEB*)((uint8_t*)teb + 0x30);
 #endif 
-#endif
     }
 
 #ifdef _WIN64
