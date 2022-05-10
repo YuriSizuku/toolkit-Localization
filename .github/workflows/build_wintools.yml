@@ -19,7 +19,7 @@ jobs:
         allowUpdates: "true"
         token: ${{ secrets.GITHUB_TOKEN }}
 
-  build_bintext:
+  build_bintext_single:
     runs-on: windows-2019 # default batch, powershell
     steps:
     - name: pull and init
@@ -32,12 +32,38 @@ jobs:
         architecture: 'x86' 
     - name: make python enviroment
       run: python -m pip install nuitka zstandard
-    - name: build cbintext
-      run: .\tool\bintext\build_bintext_nuitka.bat
+    - name: build cbintext standalone
+      run: .\tool\bintext\build_bintext_nuitkasingle.bat && |
+           rename ./tool/bintext/bin/cbintext.exe cbintext32.exe
     - name: create a release
       uses: ncipollo/release-action@v1
       with:
         artifacts: "./tool/bintext/bin/*.exe"
+        allowUpdates: "true"
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_bintext_multi:
+    runs-on: windows-2019 # default batch, powershell
+    steps:
+    - name: pull and init
+      uses: actions/checkout@v3
+      with: {submodules: true}
+    - name: set python version
+      uses: actions/setup-python@v3
+      with: 
+        python-version: '3.7'
+        architecture: 'x86' 
+    - name: make python enviroment
+      run: python -m pip install nuitka zstandard
+    - name: build cbintext standalone
+      run: .\tool\bintext\build_bintext_nuitkamulti.bat
+    - name: zip files 
+      run: rename .\tool\bintext\bin\multi cbintext32_multi && |
+          7z a -t7z -mx5 cbintext32_multi.7z .\tool\bintext\bin\cbintext32_multi
+    - name: create a release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "*.7z"
         allowUpdates: "true"
         token: ${{ secrets.GITHUB_TOKEN }}
   
