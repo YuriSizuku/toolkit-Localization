@@ -36,6 +36,6 @@ jobs:
     - name: create a release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: ".\tool\bintext\bin\*.exe"
+        artifacts: "./tool/bintext/bin/*.exe"
         token: ${{ secrets.GITHUB_TOKEN }}
   
