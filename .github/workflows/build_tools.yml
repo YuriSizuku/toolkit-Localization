@@ -15,6 +15,5 @@ jobs:
     - name: create a release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: ".\tool\libwinhook\release\dllloader32.exe,|
-            .\tool\libwinhook\release\x64\release\dllloader64.exe"
+        artifacts: "./tool/libwinhook/release/dllloader32.exe,./tool/libwinhook/release/x64/release/dllloader64.exe"
         token: ${{ secrets.GITHUB_TOKEN }}
