@@ -1,0 +1,20 @@
+name: build_tools
+on:
+  push: {tags:  ['v*'] } # Push events to matching v*, i.e. v1.0, v20.15.10
+jobs:
+  build_libwinhook:
+    runs-on: windows-2019 # default batch, powershell
+    steps:
+    - name: pull and init
+      uses: actions/checkout@v3
+      with: {submodules: true}
+    - name: add msbuild to path
+      uses: microsoft/setup-msbuild@v1.1
+    - name: build dllloader
+      run: .\tool\libwinhook\build_libwinhook.bat
+    - name: create a release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: ".\tool\libwinhook\release\dllloader32.exe,|
+            .\tool\libwinhook\release\x64\release\dllloader64.exe"
+        token: ${{ secrets.GITHUB_TOKEN }}
