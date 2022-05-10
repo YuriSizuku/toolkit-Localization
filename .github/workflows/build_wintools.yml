@@ -17,7 +17,7 @@ jobs:
       with:
         artifacts: "./tool/libwinhook/release/dllloader32.exe,./tool/libwinhook/x64/release/dllloader64.exe"
         token: ${{ secrets.GITHUB_TOKEN }}
-jobs:
+        
   build_bintext:
     runs-on: windows-2019 # default batch, powershell
     steps:
