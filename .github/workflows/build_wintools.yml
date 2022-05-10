@@ -16,8 +16,9 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         artifacts: "./tool/libwinhook/release/dllloader32.exe,./tool/libwinhook/x64/release/dllloader64.exe"
+        allowUpdates: "true"
         token: ${{ secrets.GITHUB_TOKEN }}
-        
+
   build_bintext:
     runs-on: windows-2019 # default batch, powershell
     steps:
@@ -37,5 +38,6 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         artifacts: "./tool/bintext/bin/*.exe"
+        allowUpdates: "true"
         token: ${{ secrets.GITHUB_TOKEN }}
   
