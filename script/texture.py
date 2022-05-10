@@ -1,16 +1,16 @@
 """
 something about texture and picture convert
-    v0.1.1, develope by seed
+    v0.2.1, develope by seed
 """
 
 import os
 import sys
-import cv2
-import queue
-import numpy as np
-import argparse
 import math
 import struct
+import numpy as np
+import argparse
+from queue import Queue
+from PIL import Image, ImageOps
 
 texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
 
@@ -29,7 +29,7 @@ def swizzle_regular(n, start=0, resmat=None):
     else:
         resmat = resmat.reshape([h, w])
     resmat[h - 1, w - 1] = h*w - 1 + start
-    _que = queue.Queue()
+    _que = Queue()
     _que.put((0, 0, w - 1, h - 1))
     while not _que.empty():
         x0, y0, x1, y1 = _que.get()
@@ -204,19 +204,20 @@ def texture2picture(inpath, width, outpath="out.png", format="RGBA8888", *,compr
         if f_before: data = f_before(data)
         if format == "GRAY":
             gray = raw2gray(data, width)
-            cv2.imwrite(outpath, gray)
+            Image.fromarray(gray).save(outpath)
         else:
-            bgra = raw2bgra(data, width, format=format, compress_format=compress_format, is_bgr = is_bgr)
-            cv2.imwrite(outpath, bgra)
+            bgra = raw2bgra(data, width, format=format,             
+                compress_format=compress_format, is_bgr = is_bgr)
+            Image.fromarray(bgra[:,:,[2,1,0,3]]).save(outpath)
         print(outpath + "picture extracted!")
 
 def picture2texture(inpath, outpath=r".\out.bin", format="RGBA8888", *, compress_format="", is_bgr=False, f_after=None):
     if format == "GRAY":
-        gray = cv2.imread(inpath, cv2.IMREAD_GRAYSCALE)
+        gray = np.array(ImageOps.grayscale(Image.open(inpath)))
         print(inpath + " loaded!")
         data = gray2raw(gray)
     else:
-        bgra = cv2.imread(inpath, cv2.IMREAD_UNCHANGED)
+        bgra = np.array(Image.open(inpath))[:,:, [2,1,0,3]]
         print(inpath + " loaded!")
         data = bgra2raw(bgra, format, compress_format=compress_format, is_bgr=is_bgr)
     if f_after: data = f_after(data)
@@ -225,7 +226,8 @@ def picture2texture(inpath, outpath=r".\out.bin", format="RGBA8888", *, compress
         print(outpath + "texture generated!")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="texture tool v0.2.1, developed by devseed")
     parser.add_argument('-b', '--build', action="store_true")
     parser.add_argument("-f", "--format", type=str, default="RGBA8888")
     parser.add_argument("-c", "--compress", type=str, default="")
@@ -244,4 +246,5 @@ history:
 v0.1 initial version with RGBA8888， RGB332 convert
 v0.1.1 added BGR mode
 v0.2 add swizzle method
+v0.2.1 change cv2 to PIL.image
 """
