@@ -3,8 +3,6 @@ A tool to change some texts codepage in files,
     v0.1, developed by devseed
 """
 
-import os
-import sys
 import codecs
 import argparse
 from copy import deepcopy

@@ -5,7 +5,6 @@ in ftext made by bintext.py
 """
 
 import os
-import sys
 import codecs
 import argparse
 import docx # pip install python-docx
@@ -68,7 +67,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="convert the ftext format to others, format is detected by outpath ext")
     parser.add_argument("inpath", type=str)
-    parser.add_argument("-o", "--outpath", type=str, default="out.txt")
+    parser.add_argument("-o", "--outpath", 
+        type=str, default="out.txt")
     args = parser.parse_args()
     
     outpath = args.outpath

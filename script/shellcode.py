@@ -102,7 +102,8 @@ class Coff:
                 yield funcname, offset, size, \
                     data[offset: offset+size]
 
-def extract_coff(objpath, killat=True) -> Dict[str, bytes]:
+def extract_coff(objpath, killat=True) ->\
+    Dict[str, bytes]:
     """
     parser all functions in coff obj format files
     use clang -c -O3 -ffunction-sections -fdata-sections
@@ -124,7 +125,9 @@ def extract_coff(objpath, killat=True) -> Dict[str, bytes]:
         codes.update({funcname: content})
     return codes
 
-def code2arraystr(code: Union[bytes, List[int]], format="c") -> str: 
+def code2arraystr(code: Union[bytes, List[int]],
+    format="c") -> str: 
+    
     arraystr = ""
     if format.lower() == "c":
         arraystr = ",".join([f'0x{x:02x}' for x in code])
@@ -136,7 +139,7 @@ def code2arraystr(code: Union[bytes, List[int]], format="c") -> str:
         raise NotImplementedError(f"unkonw format{format}")
     return arraystr
 
-def arraystr2code(arraystr:str, format="c") -> List[int]:
+def arraystr2code(arraystr:str, format="c")->List[int]:
     code = []
     if format.lower() == "c":
         tokens = arraystr.split(',')
@@ -145,18 +148,20 @@ def arraystr2code(arraystr:str, format="c") -> List[int]:
                 code.append(eval(token.strip(' ')))
             except SyntaxError:
                 code.append(eval(token.strip(' ').lstrip('0')))
-    elif format.lower() == "py" or format.lower() == "python":
+    elif format.lower() == "py":
         code = list(eval(f"b'{arraystr}'"))
     elif format.lower() == "hex":
-        for i, c in enumerate(arraystr.replace(' ', '')):
+        for i, c in enumerate(
+                arraystr.replace(' ', '')):
             if i%2==0: c0 = c
             else: code.append(int(c0 + c, 16))
     else: 
         raise NotImplementedError(f"unkonw format{format}")
     return code
 
-def write_shellcode_header(codes: Dict[str, Union[List[int], bytes]], 
-    /, outname="", outpath="", onlycode=False) -> List[str]:
+def write_shellcode_header(
+    codes: Dict[str, Union[List[int], bytes]], /, outname="", outpath="", 
+    onlycode=False ) -> List[str]:
     """
     write the shell code to .h file
     :param: codes, {name: code}

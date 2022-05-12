@@ -1,7 +1,7 @@
 """
 modify windows pe with dll injected for hooking
 only support for x86 and x64 architecture, no arm support now
-    v0.3.1, developed by devseed
+    v0.3.2, developed by devseed
 """
 
 import sys
@@ -464,7 +464,8 @@ def main():
         print("injectdll exepath dllpath [-m|method iat|codecave(default)|codecave2|mem] [-o outpath]")
         return
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="win_injectdll v0.3.2, developed by devseed")
     parser.add_argument('exepath', type=str)
     parser.add_argument('dllpath', type=str)
     parser.add_argument('--method', '-m', default='codecave')

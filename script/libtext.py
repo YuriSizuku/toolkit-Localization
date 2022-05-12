@@ -1,20 +1,111 @@
  # -*- coding: utf-8 -*-
 """
 Some functions about the text maniqulate, such as match text, text length, etc.
-    v0.2.1, developed by devseed
+    v0.2.2, developed by devseed
 """
 
-import os
+from pickle import TRUE
 import re
 import codecs
-import glob
 from io import StringIO
-if os.path.exists("bintext.py"):
-    import bintext
-else:
-    import zzbintext as bintext
-    
-def lcs(s1, s2):
+from typing import Callable, Tuple, Union, List, Dict
+
+# util functions
+def dump_ftexts(ftexts1:List[Dict[str,Union[int,str]]], 
+    ftexts2: List[Dict[str, Union[int, str]]], 
+    outpath: str="", *, num_width=5, 
+    addr_width=6, size_width=3) -> List[str]:
+    """
+    ftexts1, ftexts2 -> ftext lines
+    text dict is as {'addr':, 'size':, 'text':}
+    :param ftexts1[]: text dict array in '○' line, 
+    :param ftexts2[]: text dict array in '●' line
+    :return: ftext lines
+    """
+
+    if num_width==0:
+        num_width = len(str(len(ftexts1)))
+    if addr_width==0:
+        d = max([t['addr'] for t in ftexts1])
+        addr_width = len(hex(d))-2
+    if size_width==0:
+        d = max([t['size'] for t in ftexts1])
+        size_width = len(hex(d))-2
+
+    fstr1 = "○{num:0"+ str(num_width) + "d}|{addr:0" + str(addr_width) + "X}|{size:0"+ str(size_width) + "X}○ {text}\n"
+    fstr2 = fstr1.replace('○', '●')
+    lines = []
+
+    length = 0
+    if ftexts1 == None: 
+        length = len(ftexts2)
+        fstr2 += '\n'
+    if ftexts2 == None: 
+        length = len(ftexts1)
+        fstr1 += '\n'
+    if ftexts1 != None and ftexts2 != None : 
+        length = min(len(ftexts1), len(ftexts2))
+        fstr2 += '\n'
+
+    for i in range(length):
+        if ftexts1 != None:
+            t1 = ftexts1[i]
+            lines.append(fstr1.format(
+                num=i,addr=t1['addr'],size=t1['size'],text=t1['text']))
+        if ftexts2 != None:
+            t2 = ftexts2[i]
+            lines.append(fstr2.format(
+                num=i,addr=t2['addr'],size=t2['size'],text=t2['text']))
+
+    if outpath != "":
+        with codecs.open(outpath, 'w', 'utf-8') as fp:
+            fp.writelines(lines)
+    return lines 
+
+def load_ftexts(ftextsobj: Union[str, List[str]], 
+    only_text = False ) -> List[Dict[str, Union[int, str]]]:
+    """
+    ftext lines  -> ftexts1, ftexts2
+    text dict is as {'addr':, 'size':, 'text':}
+    :param inobj: can be path, or lines[] 
+    :return: ftexts1[]: text dict array in '○' line, 
+             ftexts2[]: text dict array in '●' line
+    """
+
+    ftexts1, ftexts2 = [], []
+    if type(ftextsobj) == str: 
+        with codecs.open(ftextsobj, 'r', 'utf-8') as fp: 
+            lines = fp.readlines()
+    else: lines = ftextsobj
+
+    if only_text == True: # This is used for merge_text
+        re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
+        re_line2 = re.compile(r"^●(.+?)●[ ](.*)")
+        for line in lines:
+            line = line.strip("\n").strip('\r')
+            m = re_line1.match(line)
+            if m is not None:
+                ftexts1.append({'addr':0,'size':0,'text': m.group(2)})
+            m = re_line2.match(line)
+            if m is not None:
+                ftexts2.append({'addr':0,'size':0,'text': m.group(2)})
+    else:
+        re_line1 = re.compile(r"^○(\d*)\|(.+?)\|(.+?)○[ ](.*)")
+        re_line2 = re.compile(r"^●(\d*)\|(.+?)\|(.+?)●[ ](.*)")
+        for line in lines:
+            line = line.strip("\n").strip('\r')
+            m = re_line1.match(line)
+            if m is not None:
+                ftexts1.append({'addr':int(m.group(2),16),
+                'size':int(m.group(3),16),'text': m.group(4)})
+            m = re_line2.match(line)
+            if m is not None:
+                ftexts2.append({'addr':int(m.group(2),16),
+                'size':int(m.group(3),16),'text': m.group(4)})
+    return ftexts1, ftexts2
+
+# libtext functions
+def lcs(s1:str, s2:str) -> List[List[int]]:
     """
     calculate the longeset common sequence legth of s1 and s2
     """
@@ -26,10 +117,11 @@ def lcs(s1, s2):
             else: res[i][j] = max(res[i-1][j], res[i][j-1])
     return res[-1][-1]
 
-def distance_lcs(s1, s2):
+def distance_lcs(s1: str, s2: str) -> int:
     return len(s1) + len(s2) - 2 * lcs(s1, s2)
 
-def distance_Levenshtein(s1, s2):
+def distance_Levenshtein(s1: str, s2: str) -> int:
+    
     l1, l2 = len(s1), len(s2)
     res = [[0 for j in range(l2)] for i in range(l1)]
     for i in range(0, l1):
@@ -45,8 +137,11 @@ def distance_Levenshtein(s1, s2):
                 )
     return res[-1][-1]
 
-def match_texts(texts1, texts2, max_ratio=0.1, max_dist=-1, *, 
-               f_dist=None, f_threshod=None):
+def match_texts(texts1: List[str], 
+    texts2: List[str], max_ratio=0.1, max_dist=-1, *, 
+    f_dist: Callable[[str, str], int]=None, 
+    f_threshod: Callable[[str, str, int], bool]=None)\
+    -> Tuple[List[int], List[int]]:
     """
     match the texts1 with texts2 by edit_distance_lcs
     :param max_ratio: the threshod ratio in matching, dist/len(text1), 
@@ -55,6 +150,7 @@ def match_texts(texts1, texts2, max_ratio=0.1, max_dist=-1, *,
     :param f_theshod:  f_theshod(t1, t2, dist), if skip match, return False
     :return: texts1_match, texts2_match. The position list, if not matched, index -1
     """ 
+
     def defalut_threshod(t1, t2, dist):
         if dist/len(t1) > max_ratio: return False
         if max_dist != -1 and dist > max_dist: return False
@@ -91,7 +187,7 @@ def match_texts(texts1, texts2, max_ratio=0.1, max_dist=-1, *,
 
     return texts1_match, texts2_match 
 
-def count_text_glphy(text):
+def count_textglphy(text: str) -> Dict[str, int]:
     """
     :param text, the text to count glphy
     :param sort_order, 0, no sort, 1 order, -1 reverse order
@@ -102,89 +198,119 @@ def count_text_glphy(text):
         else: glphy_map[c] = 1
     return glphy_map
 
-def count_ftexts_glphy(ftexts):
+def count_ftextsglphy(
+    ftexts: List[Dict[str, Union[int, str]]]) \
+    -> Tuple[bytes, Dict[str, int]]:
     """
     :return all_text, glphy_map from ftexts
     """
+
     all_text = StringIO()
     for ftext in ftexts:
         all_text.write(ftext['text'])
-    glphy_map = count_text_glphy(all_text.getvalue())
+    glphy_map = count_textglphy(all_text.getvalue())
     return all_text.getvalue(), glphy_map
 
-def count_ftextsfiles_glphy(ftext_files):
-    ftexts = []
-    for file in ftext_files:
-        _, ftexts2 = bintext.read_format_text(file, True)
-        ftexts.extend(ftexts2)
-    return count_ftexts_glphy(ftexts)
+def count_ftextsfilesglphy(filepaths: List[str])\
+    -> Tuple[bytes, Dict[str, int]]:
 
-def write_format_iter(ftexts1, ftexts2, filename, *, num_width=5, addr_width=6, size_width=3):
+    ftexts = []
+    for path in filepaths:
+        _, ftexts2 = load_ftexts(path, TRUE)
+        ftexts.extend(ftexts2)
+    return count_ftextsglphy(ftexts)
+
+def write_ftexts(
+    ftexts1: List[Dict[str, Union[int, str]]], 
+    ftexts2: List[Dict[str, Union[int, str]]], 
+    filename: str, outpath="",  *, num_width=5,
+    addr_width=6, size_width=3) -> List[str]:
     """ 
     # filename="xxx", n=d
     "●(.*)●[ ](.*)
     """
-    lines_text = []
-    
+
+    lines = []
+    # write header to line
     if filename != "":
         n1 = 0 if ftexts1==None else len(ftexts1)
         n2 = 0 if ftexts1==None else len(ftexts1)
         fstrfile = "# filename=\"{filename}\" n1={n1:d} n2={n2:d}\n"
-        lines_text.append(fstrfile.format(filename=filename, n1=n1, n2=n2))
-            
-    line_texts = bintext.write_format_text("", ftexts1, ftexts2, 
-                 num_width=num_width, addr_width=addr_width, size_width=size_width)
-    lines_text.extend(line_texts)    
-    return lines_text
+        lines.append(fstrfile.format
+            (filename=filename, n1=n1, n2=n2))
+    
+    # write content to line
+    lines.extend(dump_ftexts(ftexts1, ftexts2, 
+        num_width=num_width, addr_width=addr_width, 
+        size_width=size_width))
+    if outpath!="":
+        with codecs.open(outpath, 'w', 'utf-8') as fp:
+            fp.writelines(lines)
+    return lines
 
-def write_format_multi(outpath, file_ftexts, *, num_width=5, addr_width=6, size_width=3):
+def write_ftextspack(
+    filepacks: List[Dict[str, Union[str, List]]], 
+    outpath:str = "",  *, num_width=5, 
+    addr_width=6, size_width=3) -> List[str]:
     """
-    write multi ftexts into one file, with the filename information
-    :param file_ftexts[]: {'filename':, 'ftexts1', 'ftexts2'}
+    write multi ftexts into one file, 
+        with the filename information
+    :param filepaths: 
+        [{'filename':, 'ftexts1': , 'ftexts2': }]
     """
-    lines_text = []
-    for t in file_ftexts:
-        lines = write_format_iter(t['ftexts1'], t['ftexts2'], t['filename'], num_width=num_width, 
-                                   addr_width=addr_width, size_width=size_width)
-        lines_text.extend(lines)
+    
+    lines = []
+    for t in filepacks:
+        lines = write_ftexts(
+            t['ftexts1'], t['ftexts2'], t['filename'], 
+            num_width=num_width, addr_width=addr_width, 
+            size_width=size_width)
+        lines.extend(lines)
     if outpath != "":
         with codecs.open(outpath, 'w', 'utf-8') as fp:
-            fp.writelines(lines_text)
-    return lines_text
+            fp.writelines(lines)
+    return lines
 
-def read_format_multi(inpath, only_text=False):
+def read_ftextspack(
+    inobj: Union[str, List[str]], only_text=False)\
+    -> List[Dict[str, Union[str, List]]]:
     """
-    :param inpath: inpath can be path or lines_text
+    :param inobj: inobj can be path or lines_text
     """
-    file_ftexts = []
+
+    filepacks = []
     filename = "NULL"
     start = -1
     
-    if type(inpath) == str:
-         with codecs.open(inpath, 'r', 'utf-8') as fp:
-             lines_text = fp.readlines()
-    else: lines_text = inpath
+    if type(inobj) == str:
+         with codecs.open(inobj, 'r', 'utf-8') as fp:
+             lines = fp.readlines()
+    else: lines = inobj
 
-    for i, line in enumerate(lines_text):
+    for i, line in enumerate(lines):
         m = re.search(r'^#(.+?)filename="(.+?)"', line)
         if m != None:
-            if start==-1: 
+            if start == -1: 
                 start = i
                 filename = m.group(2)
                 continue
-            ftexts1, ftexts2 = bintext.read_format_text(lines_text[start:i], only_text=False)
-            file_ftexts.append( {'filename' : filename, 'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
+            ftexts1, ftexts2 = load_ftexts(
+                lines[start:i], only_text=False)
+            filepacks.append( {'filename':filename, 
+                'ftexts1':ftexts1, 'ftexts2':ftexts2})
             filename = m.group(2)
             start = i
+    ftexts1, ftexts2 = load_ftexts(
+        lines[start:len(lines)], only_text=False)
+    filepacks.append({'filename' : filename, 
+        'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
 
-    ftexts1, ftexts2 = bintext.read_format_text(lines_text[start:len(lines_text)], only_text=False)
-    file_ftexts.append( {'filename' : filename, 'ftexts1' : ftexts1, 'ftexts2' : ftexts2})
-    
-    return file_ftexts
+    return filepacks
 
 """
 history:
-v0.1 match_texts, write_format_multi, read_format_multi
-v0.2 count_glphy for building font
-v0.2.1 fix read_format_multi bug
+v0.1, match_texts, write_format_multi, read_format_multi
+v0.2, count_glphy for building font
+v0.2.1, fix read_format_multi bug
+v0.2.2, add typing hint and no dependency to bintext
 """
