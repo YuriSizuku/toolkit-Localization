@@ -69,8 +69,7 @@ def load_tbl(inobj: Union[str, List[str]],
 # lib func functions
 def make_gb2312tbl(outpath=r"", only_kanji=False, 
     replace_map: Dict[str, str]=None) \
-    -> List[Tuple[bytes, str]]:
-    
+        -> List[Tuple[bytes, str]]:
     tbl = []
     if only_kanji is False:
         for low in range(0x20, 0x7f): # asci

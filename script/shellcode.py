@@ -5,7 +5,6 @@ and generate them to shellcode byte array
 """
 
 import os
-import sys
 import struct
 import codecs
 from typing import Union, List, Dict
@@ -130,13 +129,17 @@ def code2arraystr(code: Union[bytes, List[int]],
     
     arraystr = ""
     if format.lower() == "c":
-        arraystr = ",".join([f'0x{x:02x}' for x in code])
-    elif format.lower() == "py" or format.lower() == "python":
-        arraystr = "".join([f'\\x{x:02x}' for x in code])
+        arraystr = ",".join(
+            [f'0x{x:02x}' for x in code])
+    elif format.lower() == "py" :
+        arraystr = "".join(
+            [f'\\x{x:02x}' for x in code])
     elif format.lower() == "hex":
-        arraystr = " ".join([f'{x:02x}' for x in code])
+        arraystr = " ".join(
+            [f'{x:02x}' for x in code])
     else: 
-        raise NotImplementedError(f"unkonw format{format}")
+        raise NotImplementedError(
+            f"unkonw format{format}")
     return arraystr
 
 def arraystr2code(arraystr:str, format="c")->List[int]:
@@ -145,9 +148,11 @@ def arraystr2code(arraystr:str, format="c")->List[int]:
         tokens = arraystr.split(',')
         for token in tokens:
             try:
-                code.append(eval(token.strip(' ')))
+                code.append(
+                    eval(token.strip(' ')))
             except SyntaxError:
-                code.append(eval(token.strip(' ').lstrip('0')))
+                code.append(
+                    eval(token.strip(' ').lstrip('0')))
     elif format.lower() == "py":
         code = list(eval(f"b'{arraystr}'"))
     elif format.lower() == "hex":
@@ -156,7 +161,8 @@ def arraystr2code(arraystr:str, format="c")->List[int]:
             if i%2==0: c0 = c
             else: code.append(int(c0 + c, 16))
     else: 
-        raise NotImplementedError(f"unkonw format{format}")
+        raise NotImplementedError(
+            f"unkonw format{format}")
     return code
 
 def write_shellcode_header(

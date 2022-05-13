@@ -11,7 +11,7 @@ from io import StringIO
 from typing import Callable, Tuple, Union, List, Dict
 
 # util functions
-def dump_ftexts(ftexts1:List[Dict[str,Union[int,str]]], 
+def dump_ftext(ftexts1:List[Dict[str,Union[int,str]]], 
     ftexts2: List[Dict[str, Union[int, str]]], 
     outpath: str="", *, num_width=5, 
     addr_width=6, size_width=3) -> List[str]:
@@ -62,7 +62,7 @@ def dump_ftexts(ftexts1:List[Dict[str,Union[int,str]]],
             fp.writelines(lines)
     return lines 
 
-def load_ftexts(ftextsobj: Union[str, List[str]], 
+def load_ftext(ftextobj: Union[str, List[str]], 
     only_text = False ) -> List[Dict[str, Union[int, str]]]:
     """
     ftext lines  -> ftexts1, ftexts2
@@ -73,10 +73,10 @@ def load_ftexts(ftextsobj: Union[str, List[str]],
     """
 
     ftexts1, ftexts2 = [], []
-    if type(ftextsobj) == str: 
-        with codecs.open(ftextsobj, 'r', 'utf-8') as fp: 
+    if type(ftextobj) == str: 
+        with codecs.open(ftextobj, 'r', 'utf-8') as fp: 
             lines = fp.readlines()
-    else: lines = ftextsobj
+    else: lines = ftextobj
 
     if only_text == True: # This is used for merge_text
         re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
@@ -151,12 +151,12 @@ def match_texts(texts1: List[str],
     :return: texts1_match, texts2_match. The position list, if not matched, index -1
     """ 
 
-    def defalut_threshod(t1, t2, dist):
+    def _defalut_threshod(t1, t2, dist):
         if dist/len(t1) > max_ratio: return False
         if max_dist != -1 and dist > max_dist: return False
 
     if f_dist == None: f_dist = distance_Levenshtein
-    if f_threshod == None: f_threshod = defalut_threshod
+    if f_threshod == None: f_threshod = _defalut_threshod
     texts1_match = [-1] * len(texts1)
     texts2_match = [-1] * len(texts2)
     for i, t1 in enumerate(texts1):
@@ -198,7 +198,7 @@ def count_textglphy(text: str) -> Dict[str, int]:
         else: glphy_map[c] = 1
     return glphy_map
 
-def count_ftextsglphy(
+def count_ftextglphy(
     ftexts: List[Dict[str, Union[int, str]]]) \
     -> Tuple[bytes, Dict[str, int]]:
     """
@@ -211,16 +211,16 @@ def count_ftextsglphy(
     glphy_map = count_textglphy(all_text.getvalue())
     return all_text.getvalue(), glphy_map
 
-def count_ftextsfilesglphy(filepaths: List[str])\
+def count_ftextfilesglphy(filepaths: List[str])\
     -> Tuple[bytes, Dict[str, int]]:
 
     ftexts = []
     for path in filepaths:
-        _, ftexts2 = load_ftexts(path, TRUE)
+        _, ftexts2 = load_ftext(path, TRUE)
         ftexts.extend(ftexts2)
-    return count_ftextsglphy(ftexts)
+    return count_ftextglphy(ftexts)
 
-def write_ftexts(
+def write_ftext(
     ftexts1: List[Dict[str, Union[int, str]]], 
     ftexts2: List[Dict[str, Union[int, str]]], 
     filename: str, outpath="",  *, num_width=5,
@@ -240,7 +240,7 @@ def write_ftexts(
             (filename=filename, n1=n1, n2=n2))
     
     # write content to line
-    lines.extend(dump_ftexts(ftexts1, ftexts2, 
+    lines.extend(dump_ftext(ftexts1, ftexts2, 
         num_width=num_width, addr_width=addr_width, 
         size_width=size_width))
     if outpath!="":
@@ -248,7 +248,7 @@ def write_ftexts(
             fp.writelines(lines)
     return lines
 
-def write_ftextspack(
+def write_ftextpack(
     filepacks: List[Dict[str, Union[str, List]]], 
     outpath:str = "",  *, num_width=5, 
     addr_width=6, size_width=3) -> List[str]:
@@ -261,7 +261,7 @@ def write_ftextspack(
     
     lines = []
     for t in filepacks:
-        lines = write_ftexts(
+        lines = write_ftext(
             t['ftexts1'], t['ftexts2'], t['filename'], 
             num_width=num_width, addr_width=addr_width, 
             size_width=size_width)
@@ -271,7 +271,7 @@ def write_ftextspack(
             fp.writelines(lines)
     return lines
 
-def read_ftextspack(
+def read_ftextpack(
     inobj: Union[str, List[str]], only_text=False)\
     -> List[Dict[str, Union[str, List]]]:
     """
@@ -294,13 +294,13 @@ def read_ftextspack(
                 start = i
                 filename = m.group(2)
                 continue
-            ftexts1, ftexts2 = load_ftexts(
+            ftexts1, ftexts2 = load_ftext(
                 lines[start:i], only_text=False)
             filepacks.append( {'filename':filename, 
                 'ftexts1':ftexts1, 'ftexts2':ftexts2})
             filename = m.group(2)
             start = i
-    ftexts1, ftexts2 = load_ftexts(
+    ftexts1, ftexts2 = load_ftext(
         lines[start:len(lines)], only_text=False)
     filepacks.append({'filename' : filename, 
         'ftexts1' : ftexts1, 'ftexts2' : ftexts2})

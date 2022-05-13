@@ -3,8 +3,6 @@ something about texture and picture convert
     v0.2.1, develope by seed
 """
 
-import os
-import sys
 import math
 import struct
 import numpy as np

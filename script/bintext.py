@@ -43,7 +43,7 @@ def istext(data: bytes, encoding="utf-8"):
         return False
     else: return True
 
-def dump_ftexts(ftexts1:List[Dict[str,Union[int,str]]], 
+def dump_ftext(ftexts1:List[Dict[str,Union[int,str]]], 
     ftexts2: List[Dict[str, Union[int, str]]], 
     outpath: str="", *, num_width=5, 
     addr_width=6, size_width=3) -> List[str]:
@@ -94,7 +94,7 @@ def dump_ftexts(ftexts1:List[Dict[str,Union[int,str]]],
             fp.writelines(lines)
     return lines 
 
-def load_ftexts(ftextsobj: Union[str, List[str]], 
+def load_ftext(ftextobj: Union[str, List[str]], 
     only_text = False ) -> List[Dict[str, Union[int, str]]]:
     """
     ftext lines  -> ftexts1, ftexts2
@@ -105,10 +105,10 @@ def load_ftexts(ftextsobj: Union[str, List[str]],
     """
 
     ftexts1, ftexts2 = [], []
-    if type(ftextsobj) == str: 
-        with codecs.open(ftextsobj, 'r', 'utf-8') as fp: 
+    if type(ftextobj) == str: 
+        with codecs.open(ftextobj, 'r', 'utf-8') as fp: 
             lines = fp.readlines()
-    else: lines = ftextsobj
+    else: lines = ftextobj
 
     if only_text == True: # This is used for merge_text
         re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
@@ -216,7 +216,7 @@ def decode_tbl(data: bytes,
             return None
     return text.getvalue()
 
-def extract_text_utf8 (data, min_len=3) \
+def extract_textutf8 (data, min_len=3) \
     -> Tuple[List[int], List[bytes]]:
 
     addrs, texts_data = [], []
@@ -252,7 +252,7 @@ def extract_text_utf8 (data, min_len=3) \
                 i += 1
     return addrs, texts_data
 
-def extract_text_sjis(data, min_len=2) \
+def extract_textsjis(data, min_len=2) \
     -> Tuple[List[int], List[bytes]]:
 
     addrs, texts_data = [], []
@@ -290,7 +290,7 @@ def extract_text_sjis(data, min_len=2) \
 
     return addrs, texts_data
 
-def extract_unicode(data, min_len=2) \
+def extract_textunicode(data, min_len=2) \
     -> Tuple[List[int], List[bytes]]:
 
     addrs, texts_data = [], []
@@ -324,7 +324,7 @@ def extract_unicode(data, min_len=2) \
                 i += 2
     return addrs, texts_data
 
-def extract_text_tbl(data, tbl: List[Tuple[bytes, str]], 
+def extract_texttbl(data, tbl: List[Tuple[bytes, str]], 
     min_len=2) -> Tuple[List[int], List[bytes]]: 
     """
     :param tbl: the customized charcode mapping to encoding charcode
@@ -357,7 +357,7 @@ def extract_text_tbl(data, tbl: List[Tuple[bytes, str]],
         
     return addrs, texts_data
 
-def extract_multichar(data, encoding, 
+def extract_textmultichar(data, encoding, 
     min_len=2) -> Tuple[List[int], List[bytes]]:
 
     addrs, texts_data = [], []
@@ -455,7 +455,7 @@ def patch_text(orgdata: bytearray,
     return data
         
 # cli functions
-def check_ftext_file(ftextobj: Union[str, List[str]], 
+def check_ftextobj(ftextobj: Union[str, List[str]], 
     outpath="check.txt", encoding="utf-8", 
     tblobj: Union[str, List[str]]="")\
          -> List[Dict[str, Union[int, str]]]:
@@ -469,7 +469,7 @@ def check_ftext_file(ftextobj: Union[str, List[str]],
 
     if tblobj!="": tbl = load_tbl(tblobj, encoding)
     else: tbl = None
-    _, ftexts = load_ftexts(ftextobj)
+    _, ftexts = load_ftext(ftextobj)
     errors = []
 
     fp = None
@@ -501,7 +501,7 @@ def check_ftext_file(ftextobj: Union[str, List[str]],
     if fp: fp.close()
     return errors
 
-def verify_ftext_file(ftextobj: Union[str, List[str]], 
+def verify_ftextobj(ftextobj: Union[str, List[str]], 
     binobj: Union[str, bytes], outpath="verify.txt", 
     encoding="utf-8", tblobj: Union[str, List[str]]=""):
     """
@@ -515,7 +515,7 @@ def verify_ftext_file(ftextobj: Union[str, List[str]],
     if tblobj!="": tbl = load_tbl(tblobj, encoding)
     else: tbl = None
 
-    ftexts, _ = load_ftexts(ftextobj)
+    ftexts, _ = load_ftext(ftextobj)
     if type(binobj) == str:
         with open(binobj, 'rb') as fp:
             data = fp.read()
@@ -546,7 +546,7 @@ def verify_ftext_file(ftextobj: Union[str, List[str]],
     if fp: fp.close()
     return errors
                     
-def merge_ftext_file(ftextobj1: Union[str, List[str]], 
+def merge_ftextobj(ftextobj1: Union[str, List[str]], 
     ftextobj2: Union[str, List[str]], outpath: str=""):
     """
     merge the '○' line in inpath2, 
@@ -554,25 +554,25 @@ def merge_ftext_file(ftextobj1: Union[str, List[str]],
     :return: merged lines
     """
 
-    ftexts1, _ = load_ftexts(ftextobj1)
-    _, ftexts2 = load_ftexts(ftextobj2, only_text=True)
-    lines = dump_ftexts(ftexts1, ftexts2, outpath=outpath)
+    ftexts1, _ = load_ftext(ftextobj1)
+    _, ftexts2 = load_ftext(ftextobj2, only_text=True)
+    lines = dump_ftext(ftexts1, ftexts2, outpath=outpath)
     return lines
         
-def shift_ftext_file(ftextobj: Union[str, List[str]]
+def shift_ftextobj(ftextobj: Union[str, List[str]]
     , n, outpath: str=""):
     """
     shift all the addr by n
     :return: shift lines
     """
-    ftexts1, ftexts2 = load_ftexts(ftextobj)
+    ftexts1, ftexts2 = load_ftext(ftextobj)
     for ftext1, ftext2 in zip(ftexts1, ftexts2):
         ftext1['addr'] += n
         ftext2['addr'] += n
-    lines = dump_ftexts(ftexts1, ftexts2, outpath=outpath)
+    lines = dump_ftext(ftexts1, ftexts2, outpath=outpath)
     return lines
             
-def patch_ftext_file(ftextobj: Union[str, List[str]], 
+def patch_ftextobj(ftextobj: Union[str, List[str]], 
     binobj: Union[str, bytes], outpath="out.bin", 
     encoding = 'utf-8', searchobj: Union[str, bytes]="",
     padding_bytes=b"\x00", tblobj: Union[str, List[str]]="", 
@@ -584,7 +584,7 @@ def patch_ftext_file(ftextobj: Union[str, List[str]],
         or custom tbl's if not None
     """
 
-    _, ftexts2 = load_ftexts(ftextobj)
+    _, ftexts2 = load_ftext(ftextobj)
     
     if type(binobj) == str:
         with open(binobj, 'rb') as fp:
@@ -613,7 +613,7 @@ def patch_ftext_file(ftextobj: Union[str, List[str]],
             fp.write(data)
     return data
 
-def extract_ftext_file(binobj: Union[str, bytes], 
+def extract_ftextobj(binobj: Union[str, bytes], 
     outpath="out.txt", encoding='utf-8', 
     tblobj: Union[str, List[str]]="", 
     start_addr=0, end_addr=0, min_len=2, has_cjk=True, 
@@ -642,20 +642,20 @@ def extract_ftext_file(binobj: Union[str, bytes],
         addrs, texts_data = f_extract(data, tbl)
     else:
         if tbl is not None:
-            addrs, texts_data = extract_text_tbl(
+            addrs, texts_data = extract_texttbl(
                 data[start_addr: end_addr], tbl, min_len=min_len)
         elif encoding =="utf-8" :
-            addrs, texts_data = extract_text_utf8(
+            addrs, texts_data = extract_textutf8(
                 data[start_addr: end_addr], min_len=min_len)
         elif encoding == "sjis":
-            addrs, texts_data = extract_text_sjis(
+            addrs, texts_data = extract_textsjis(
                 data[start_addr: end_addr], min_len=min_len)
         elif encoding == "unicode":
-            addrs, texts_data = extract_unicode(
+            addrs, texts_data = extract_textunicode(
                 data[start_addr: end_addr], min_len=min_len)
             encoding = 'utf-16'
         else: 
-            addrs, texts_data = extract_multichar(
+            addrs, texts_data = extract_textmultichar(
                 data[start_addr: end_addr], 
                 encoding=encoding, min_len=min_len)
     addrs = map(lambda x: x + start_addr, addrs)
@@ -685,7 +685,7 @@ def extract_ftext_file(binobj: Union[str, bytes],
         ftexts.append({'addr':addr, 'size':size, 'text':text})
         print("at 0x%06X %d bytes extraced" % (addr, size))
 
-    lines = dump_ftexts(ftexts, ftexts, outpath=outpath)
+    lines = dump_ftext(ftexts, ftexts, outpath=outpath)
     print("extracted text done! in " +  outpath)
     return lines
 
@@ -749,29 +749,29 @@ def main(cmdstr=None):
     if cmdstr is None: args = parser.parse_args()
     else: args = parser.parse_args(cmdstr.split(' '))
     if args.check:
-        check_ftext_file(args.inpath, args.outpath, 
+        check_ftextobj(args.inpath, args.outpath, 
             encoding=args.encoding, tblobj=args.tbl)
     elif args.verify:
-        verify_ftext_file(args.inpath, args.verify, args.outpath,   
+        verify_ftextobj(args.inpath, args.verify, args.outpath,   
             encoding=args.encoding, tblobj=args.tbl)
     elif args.shift:
-        shift_ftext_file(args.inpath, args.shift, args.outpath)
+        shift_ftextobj(args.inpath, args.shift, args.outpath)
     elif args.merge:
-        merge_ftext_file(args.inpath, args.merge, args.outpath)
+        merge_ftextobj(args.inpath, args.merge, args.outpath)
     elif args.patch:
         replace_map = dict()
         for t in args.replace_map:
             _t = t.split(':')
             if len(_t)<2: continue
             replace_map[_t[0]] = _t[1]
-        patch_ftext_file(args.inpath, args.patch, args.outpath, 
+        patch_ftextobj(args.inpath, args.patch, args.outpath, 
             encoding=args.encoding, 
             searchobj = args.search_file,  
             padding_bytes=bytes(args.padding_bytes), 
             tblobj=args.tbl, can_longer=args.can_longer, 
             replace_map=replace_map)
     else:
-        extract_ftext_file(args.inpath, args.outpath, 
+        extract_ftextobj(args.inpath, args.outpath, 
             encoding=args.encoding, tblobj=args.tbl, 
             start_addr=args.start_addr, end_addr=args.end_addr,
             has_cjk=args.has_cjk, min_len=args.min_len)

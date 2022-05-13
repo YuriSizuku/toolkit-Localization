@@ -72,7 +72,8 @@ def debug():
 
 def main(cmdstr=None):
     parser = argparse.ArgumentParser(description=
-        "convert the file from a codepage to another codepage")
+        "convert the file from a codepage to another codepage\n"
+        "cpcvt, v0.1, developed by devseed")
     parser.add_argument('inpath', type=str)
     parser.add_argument('-o', '--outpath', default='out', type=str)
     parser.add_argument('-l', '--list', type=str,
