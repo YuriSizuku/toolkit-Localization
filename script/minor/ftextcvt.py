@@ -269,7 +269,8 @@ def debug():
 
 def main(cmdstr=None):
     parser = argparse.ArgumentParser(
-        description="convert the ftext format to others")
+        description="convert the ftext format to others\n"
+        "ftextcvt v0.2, developed by devseed")
     parser.add_argument("inpath", type=str)
     parser.add_argument("-o", "--outpath", 
         type=str, default="out.txt")

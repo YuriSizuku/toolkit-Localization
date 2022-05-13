@@ -61,7 +61,9 @@ jobs:
         python-version: '3.7'
         architecture: 'x86' 
     - name: make python enviroment
-      run: python -m pip install nuitka zstandard
+      run: |
+        python -m pip install nuitka zstandard
+        python -m pip install python-docx
     - name: build pytool directory
       run: |
         cmd.exe /c ".\tool\${{ matrix.pytoolname }}\build_${{ matrix.pytoolname }}_nuitkamulti.bat"
