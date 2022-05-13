@@ -1,7 +1,2 @@
-:: build_nuitkafile scriptpath [outdir] [outpath] [iconpath] [argss]
-set SCRIPTPATH=%1
-set OUTDIR=%2
-set OUTPATH=%3
-set ICONPATH=%4
-set ARGS=%5 %6 %7 %8 %9
-nuitka --standalone --onefile --full-compat --show-progress %SCRIPTPATH% --output-dir=%OUTPATH% -o=%OUTPATH% --windows-icon-from-ico=%ICONPATH% --assume-yes-for-downloads %ARGS%
+:: build single files
+nuitka --standalone --full-compat --show-progress "%~dp0\..\..\script\bintext.py" --windows-icon-from-ico="%~dp0\..\..\asset\default.ico" --output-dir="%~dp0\bin\" -o "%~dp0\bin\cbintext.exe" --assume-yes-for-downloads

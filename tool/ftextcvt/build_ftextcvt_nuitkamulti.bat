@@ -1,0 +1,2 @@
+:: build multi files
+nuitka --standalone --full-compat --show-progress "%~dp0\..\..\script\minor\ftextcvt.py" --windows-icon-from-ico="%~dp0\..\..\asset\default.ico" --output-dir="%~dp0\bin\multi" --assume-yes-for-downloads
