@@ -35,14 +35,14 @@ jobs:
         architecture: 'x86' 
     - name: make python enviroment
       run: python -m pip install nuitka zstandard
-    - name: build pytool standalone
+    - name: build pytool single
       run: |
-        .\tool\{{ matrix.pytoolname }}\build_{{ matrix.pytoolname }}_nuitkasingle.bat
-        move .\tool\{{ matrix.pytoolname }}\bin\{{ matrix.pytoolname }}.exe .\tool\{{ matrix.pytoolname }}\bin\c{{ matrix.pytoolname }}32.exe
+        cmd.exe /c ".\tool\${{ matrix.pytoolname }}\build_${{ matrix.pytoolname }}_nuitkasingle.bat"
+        move ".\tool\${{ matrix.pytoolname }}\bin\c${{ matrix.pytoolname }}.exe" ".\tool\${{ matrix.pytoolname }}\bin\c${{ matrix.pytoolname }}32.exe"
     - name: create a release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "./tool/{{ matrix.pytoolname }}/bin/*.exe"
+        artifacts: "./tool/${{ matrix.pytoolname }}/bin/*.exe"
         allowUpdates: "true"
         token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -62,12 +62,13 @@ jobs:
         architecture: 'x86' 
     - name: make python enviroment
       run: python -m pip install nuitka zstandard
-    - name: build pytool standalone
-      run: .\tool\{{ matrix.pytoolname }}\build_{{ matrix.pytoolname }}_nuitkamulti.bat
+    - name: build pytool directory
+      run: |
+        cmd.exe /c ".\tool\${{ matrix.pytoolname }}\build_${{ matrix.pytoolname }}_nuitkamulti.bat"
     - name: pack files
       run: |
-        move .\tool\{{ matrix.pytoolname }}\bin\multi .\tool\{{ matrix.pytoolname }}\bin\c{{ matrix.pytoolname }}32_multi
-        7z a -t7z -mx5 c{{ matrix.pytoolname }}32_multi.7z .\tool\bintext\bin\c{{ matrix.pytoolname }}32_multi
+        move ".\tool\${{ matrix.pytoolname }}\bin\multi" ".\tool\${{ matrix.pytoolname }}\bin\c${{ matrix.pytoolname }}32_multi"
+        7z a -t7z -mx5 c${{ matrix.pytoolname }}32_multi.7z ".\tool\${{ matrix.pytoolname }}\bin\c${{ matrix.pytoolname }}32_multi"
     - name: create a release
       uses: ncipollo/release-action@v1
       with:

@@ -1,2 +1,2 @@
 :: build single files
-nuitka --standalone --full-compat --show-progress "%~dp0\..\..\script\ftextcvt.py" --windows-icon-from-ico="%~dp0\..\..\asset\default.ico" --output-dir="%~dp0\bin\" -o "%~dp0\bin\cftextcvt.exe" --assume-yes-for-downloads
+nuitka --standalone --onefile --full-compat --show-progress "%~dp0\..\..\script\minor\ftextcvt.py" --windows-icon-from-ico="%~dp0\..\..\asset\default.ico" --output-dir="%~dp0\bin" -o "%~dp0\bin\cftextcvt.exe" --assume-yes-for-downloads
