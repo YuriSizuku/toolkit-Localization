@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.6 developed by devseed
+    v0.5.7 developed by devseed
 """
 
 import re
@@ -457,8 +457,9 @@ def patch_text(orgdata: bytearray,
 # cli functions
 def check_ftextobj(ftextobj: Union[str, List[str]], 
     outpath="check.txt", encoding="utf-8", 
-    tblobj: Union[str, List[str]]="")\
-         -> List[Dict[str, Union[int, str]]]:
+    tblobj: Union[str, List[str]]="", 
+    replace_map: Dict[str, str]=None) \
+        -> List[Dict[str, Union[int, str]]]:
     """
     checking if the text length or mapping to customized charcode valid
     :param encoding: the encoding of textpath
@@ -477,15 +478,27 @@ def check_ftextobj(ftextobj: Union[str, List[str]],
     for i, ftext in enumerate(ftexts):
         err_str = ""
         addr, size, text = ftext['addr'], ftext['size'], ftext['text'] 
-        if tbl is not None:
-            for j, c in enumerate(text):
+        if replace_map is not None:
+            for k, v in replace_map.items():
+                text = text.replace(k, v)
+
+        # check encoding 
+        for j, c in enumerate(text):
+            if tbl is not None:
                 if encode_tbl(c, tbl) is None:
                     err_str+= "{}({:d}), ".format(c, j)
-            if err_str!="":
-                line = "{}  {:06X}  {}".format(i, addr, err_str[:-2])
-                print(line)
-                if fp: fp.write(line+"\n")
+            else:
+                try:
+                    c.encode(encoding)
+                except UnicodeEncodeError as e:
+                    err_str+= "{}({:d}), ".format(c, j)
 
+        if err_str!="":
+            line = "{}  {:06X}  {}".format(i, addr, err_str[:-2])
+            print(line)
+            if fp: fp.write(line+"\n")
+
+        # check length
         if  err_str == "":
             text_len = len(encode_tbl(text, tbl)) \
                 if tbl else len(text.encode(encoding))
@@ -576,7 +589,7 @@ def patch_ftextobj(ftextobj: Union[str, List[str]],
     binobj: Union[str, bytes], outpath="out.bin", 
     encoding = 'utf-8', searchobj: Union[str, bytes]="",
     padding_bytes=b"\x00", tblobj: Union[str, List[str]]="", 
-    can_longer=False, replace_map=None):
+    can_longer=False, replace_map: Dict[str, str]=None) -> bytes:
     """
     import the text in textpath to insertpath, make the imported file as outpath
     ftexts should always using encoding utf-8
@@ -694,7 +707,7 @@ def debug():
 
 def main(cmdstr=None):
     parser = argparse.ArgumentParser(
-        description="bintext v0.5.6, developed by devseed")
+        description="bintext v0.5.7, developed by devseed")
     
     # input and output
     parser.add_argument('inpath', type=str)
@@ -721,6 +734,9 @@ def main(cmdstr=None):
         help="if using tbl, this encoding is for tbl")
     utilcfg.add_argument('--tbl', type=str, default="", 
         help="custom charcode table")
+    utilcfg.add_argument('--replace_map', 
+        type=str, default=[""], nargs='+', 
+        help="replace the char in 'a:b' 'c:d' format")
    
     # extract configure
     extractcfg = parser.add_argument_group(title="extract config")
@@ -741,16 +757,20 @@ def main(cmdstr=None):
     pathchcfg.add_argument('--padding_bytes', 
         type=int, default=[0x20], nargs='+',
         help="padding char if import text shorter than origin")
-    pathchcfg.add_argument('--replace_map', 
-        type=str, default=[""], nargs='+', 
-        help="replace the char in 'a:b' 'c:d' format")
 
     # parse args
     if cmdstr is None: args = parser.parse_args()
     else: args = parser.parse_args(cmdstr.split(' '))
+    replace_map = dict()
+    for t in args.replace_map:
+        _t = t.split(':')
+        if len(_t)<2: continue
+        replace_map[_t[0]] = _t[1]
+        
     if args.check:
         check_ftextobj(args.inpath, args.outpath, 
-            encoding=args.encoding, tblobj=args.tbl)
+            encoding=args.encoding, tblobj=args.tbl,
+            replace_map=replace_map)
     elif args.verify:
         verify_ftextobj(args.inpath, args.verify, args.outpath,   
             encoding=args.encoding, tblobj=args.tbl)
@@ -759,11 +779,6 @@ def main(cmdstr=None):
     elif args.merge:
         merge_ftextobj(args.inpath, args.merge, args.outpath)
     elif args.patch:
-        replace_map = dict()
-        for t in args.replace_map:
-            _t = t.split(':')
-            if len(_t)<2: continue
-            replace_map[_t[0]] = _t[1]
         patch_ftextobj(args.inpath, args.patch, args.outpath, 
             encoding=args.encoding, 
             searchobj = args.search_file,  
@@ -802,4 +817,5 @@ v0.5.3, add serach replace text mode by --search_file
 v0.5.4, add extraxt --start, --end parameter
 v0.5.5, add extract_unicode for 0x2 aligned unicode
 v0.5.6, add typing hint and prepare read lines for pyscript in web
+v0.5.7, add repalced map in check method, fix -e in check 
 """

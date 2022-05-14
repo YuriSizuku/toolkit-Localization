@@ -181,7 +181,10 @@ def json2ftext(jsonobj: Union[str, List[str]],
 @file2lines
 def ftext2docx(ftextobj: Union[str, List[str]], 
     outpath="") -> Document:
-    
+    """
+    if this function compiled by nuitka, 
+    it needs default.docx file in ./docx/templates
+    """
     lines = ftextobj
     document = Document()
     for i, line in enumerate(lines):
