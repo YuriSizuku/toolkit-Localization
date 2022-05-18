@@ -341,7 +341,7 @@ INLINE size_t STDCALL winpe_appendsecth(
 
 #include <stdio.h>
 #include <assert.h>
-#include <Windows.h>
+#include <windows.h>
 #include <winternl.h>
 
 // util INLINE functions

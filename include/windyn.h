@@ -8,6 +8,7 @@ functions or macros for dynamic bindings
 #define _WINDYN_H
 #include <windows.h>
 #include <winternl.h>
+#include <tlhelp32.h>
 
 #ifndef WINDYNDEF
 #ifdef WINDYN_STATIC
@@ -750,7 +751,7 @@ INLINE BOOL WINAPI windyn_Process32Next(
 #endif
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif
 
 #endif
