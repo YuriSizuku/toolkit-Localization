@@ -4,7 +4,6 @@ EXPORTS
     winpe_findkernel32
     winpe_findloadlibrarya
     winpe_findspace
-    winpe_findmodulea
     winpe_imagebaseval
     winpe_imagesizeval
     winpe_memFreeLibrary

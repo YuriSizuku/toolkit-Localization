@@ -1,6 +1,6 @@
 # ReverseUtil  
 
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/yurisizuku/reverseutil?color=green&label=ReverseUtil)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/yurisizuku/reverseutil?color=green&label=ReverseUtil)![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yurisizuku/reverseutil/build_tools)  
 There are my tools for reversing.  
 The building example is in `./sln`,  
 as well as `Makefile` for `tcc`, `gcc` and `clang`.  

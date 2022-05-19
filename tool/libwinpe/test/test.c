@@ -5,7 +5,7 @@
 #define WINPE_NOASM
 #include "winpe.h"
 
-void test_winpe()
+void test_findexpcrc()
 {
 	HMODULE kernel32 = (HMODULE)winpe_findkernel32();
 	assert(GetModuleHandleA("kernel32") == kernel32);
@@ -15,8 +15,18 @@ void test_winpe()
 		== GetProcAddress(kernel32, "LoadLibraryA"));
 }
 
+void test_getfunc(HMODULE hmod, const char* funcname)
+{
+	size_t expva = (size_t)GetProcAddress(hmod, funcname);
+	size_t exprva = (size_t)winpe_memfindexp(hmod, funcname) - (size_t)hmod;
+	void* func2 = winpe_memGetProcAddress(hmod, funcname);
+	assert(exprva != 0  && func2 == expva);
+	printf("test_getfunc %p %s passed!\n", hmod, funcname);
+}
+
 int main(int argc, char* argv[])
 {
-	test_winpe();
+	test_getfunc(LoadLibraryA("kernel32.dll"), "GetProcessMitigationPolicy");
+	test_findexpcrc();
 	return 0;
 }

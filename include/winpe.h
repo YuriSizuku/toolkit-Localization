@@ -345,7 +345,7 @@ INLINE size_t STDCALL winpe_appendsecth(
 #include <winternl.h>
 
 // util INLINE functions
-INLINE int _winpeinl_strlen(const char* str1)
+INLINE size_t _winpeinl_strlen(const char* str1)
 {
     const char* p = str1;
     while(*p) p++;
@@ -594,9 +594,9 @@ INLINE PROC STDCALL winpe_memGetProcAddress(
 {
     void* expva = winpe_memfindexp(mempe, funcname);
     size_t exprva = (size_t)((uint8_t*)expva - (uint8_t*)mempe);
-    return (PROC)winpe_memforwardexp(mempe, exprva, 
+    return (PROC)winpe_memforwardexp(mempe, exprva, // to avoid infinity loop
         (PFN_LoadLibraryA)winpe_findloadlibrarya(), 
-        (PFN_GetProcAddress)winpe_memfindexp);
+        (PFN_GetProcAddress)winpe_findgetprocaddress());
 }
 
 // PE query functions
@@ -1102,6 +1102,9 @@ INLINE void* STDCALL winpe_memforwardexp(
     PFN_LoadLibraryA pfnLoadLibraryA, 
     PFN_GetProcAddress pfnGetProcAddress)
 {
+    // this function might have infinite loop
+    // such as this situation
+    // kerenl32.dll, GetProcessMitigationPolicy -> api-ms-win-core-processthreads-l1-1-1.dll -> kerenl32.dll, GetProcessMitigationPolicys
     size_t dllbase = (size_t)mempe;
     while (1)
     {
