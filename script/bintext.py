@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 A binary text tool for text exporting and importing, checking
-    v0.5.7 developed by devseed
+    v0.5.8 developed by devseed
 """
 
 import re
@@ -9,7 +9,7 @@ import struct
 import codecs
 import argparse
 from io import StringIO, BytesIO
-from typing import Callable, Tuple, Union, List, Dict
+from typing import Any, Callable, Tuple, Union, List, Dict
 
 # lib functions
 def iscjk(c: bytes): 
@@ -36,7 +36,17 @@ def iscjk(c: bytes):
         [range["from"] <= ord(c) <= range["to"] 
         for range in ranges])
 
+def hascjk(t: bytes) -> bool:
+
+    flag = False
+    for c in t:
+        if iscjk(c):
+            flag = True
+            break
+    return flag
+
 def istext(data: bytes, encoding="utf-8"):
+
     try:
         data.decode(encoding)
     except UnicodeDecodeError:
@@ -392,26 +402,43 @@ def extract_textmultichar(data, encoding,
     return addrs, texts_data
 
 def patch_text(orgdata: bytearray, 
-    ftexts: List[Dict[str, Union[int, str]]], is_copy=False,
-    encoding='utf-8', search_data=None, padding_bytes=b'\x00', 
-    tbl: List[Tuple[bytes, str]]=None, can_longer=False, 
-    jump_table: Dict[str, int]=None, 
-    replace_map: Dict[str, str]=None) -> bytes:
+    ftexts: List[Dict[str, Union[int, str]]],
+    encoding='utf-8', tbl: List[Tuple[bytes, str]]=None, 
+    is_copy=False, can_longer=False, is_mute=False, 
+    replace_map: Dict[str, str]=None, padding_bytes=b'\x00', 
+    search_data=None, *, jump_table: Dict[str, int]=None, 
+    f_extension: Callable[[str, Any], str]=
+        lambda x, args: eval(x), fargs_extension=None, 
+    f_adjust: Callable[[bytearray, bytes, 
+        int, int, int, Any], None]=None, fargs_adjust=None
+    ) -> bytes:
     """
     :param data: bytearray
     :param encoding: the encoding of the original binary file if no tbl
+    :param replace_map: a dict for replaceing char, {'a': 'b'} 
+    :param padding_bytes: paddings if rebuild text shorter
+    :param search_data: get the bytes in search_data by addr, 
+        and then search the pattern to replace
+
     :param jump_table: a dict array with 
         {'addr':, 'addr_new':, 'jumpto':, 'jumpto_new':}
-    :param replace_map: a dict for replaceing char, {'a': 'b'} 
+    :f_extension: parse the extension to replace, like {{\xab\xcd}}
+    :f_adjust: some adjusting after import text,  
+        f_adjust(orgdata, targetdata, orgaddr, orgsize, shift, fargs_adjust)
     """
-    if is_copy: data = orgdata
+    
+    if not is_copy: data = orgdata
     else: data = bytearray(orgdata)
-    offset = 0
+    
+    shift = 0
     _searchedset = set()
+    ftexts.sort(key=lambda x: x['addr'])
     for _, ftext in enumerate(ftexts):
         addr, size, text = ftext['addr'], ftext['size'], ftext['text'] 
+        
+        # search the pattern by other data
         if search_data is not None:
-            _bytes = search_data[addr+offset: addr+offset+size]
+            _bytes = search_data[addr+shift: addr+shift+size]
             addr = -1
             while True:
                 addr = data.find(_bytes, addr+1)
@@ -420,37 +447,63 @@ def patch_text(orgdata: bytearray,
                     break
                 if addr < 0: break 
         if addr < 0: continue
-
-        data[addr+offset: addr+offset+size] = bytearray(size)
-
+       
+        # parse the patterns in text
         text = text.replace(r'[\n]', '\n')
         text = text.replace(r'[\r]', '\r')
         if replace_map is not None:
             for k, v in replace_map.items():
                 text = text.replace(k, v)
+        bufio = BytesIO()
+        if text.find("{{") == -1:
+            if tbl: bufio.write(encode_tbl(text, tbl))
+            else: bufio.write(text.encode(encoding))
+        else:
+            start = 0
+            while start + 2 < len(text):
+                end = text.find('{{', start)
+                if end < 0: break
+                if tbl: bufio.write(encode_tbl(text[start: end], tbl))
+                else: bufio.write(text[start: end].encode(encoding))
+                start = end + 2
+                end = text.find('}}', start)
+                if end < 0: 
+                    raise ValueError(
+                        f"pattern not closed at {addr:x}, {text}")
+                _bytes = f_extension(text[start:end], fargs_extension)
+                bufio.write(_bytes)
+                start = end + 2
 
-        if tbl: buf = encode_tbl(text, tbl)
-        else: buf = text.encode(encoding)
-        
+        if bufio.tell() <= size : 
+            bufio.write(
+                (size-bufio.tell())//len(padding_bytes) 
+                * padding_bytes)
+        else: 
+            if not is_mute:
+                print("at 0x%06X, %d bytes is lager than %d bytes!"
+                    %(addr, bufio.tell(), size))
+
+        # adjust the jump_table
         if jump_table is not None:
             for t in jump_table:
                 if t['addr'] >= addr: 
-                    t['addr_new'] = t['addr'] + offset
+                    t['addr_new'] = t['addr'] + shift
                 if t['jumpto'] >= addr:  
-                    t['jumpto_new'] = t['jumpto'] + offset
+                    t['jumpto_new'] = t['jumpto'] + shift
 
-        if len(buf) <= size : 
-            padding_len = len(padding_bytes)
-            buf = buf + (size-len(buf))//padding_len * padding_bytes
-        else: 
-            print("at 0x%06X, %d bytes is lager than %d bytes!"
-                %(addr, len(buf), size))
+        # adjust some information after import text
+        if f_adjust:
+            f_adjust(data, bufio.getbuffer(), 
+                addr, size, shift, fargs_adjust)
+
+        # patch the data
         if not can_longer:
-            data[addr+offset:addr+offset+size] = buf[0:size]
+            data[addr+shift: addr+shift+size] = bufio.getbuffer()[0:size]
         else:
-            data[addr+offset:addr+offset+size] = buf
-            offset += len(buf) - size
-        print("at 0x%06X, %d bytes replaced!" % (addr+offset, size))
+            data[addr+shift: addr+shift+size] = bufio.getbuffer()
+            shift += bufio.tell() - size
+        if not is_mute:
+            print("at 0x%06X, %d bytes replaced!" % (addr+shift, size))
  
     return data
         
@@ -629,9 +682,8 @@ def patch_ftextobj(ftextobj: Union[str, List[str]],
 def extract_ftextobj(binobj: Union[str, bytes], 
     outpath="out.txt", encoding='utf-8', 
     tblobj: Union[str, List[str]]="", 
-    start_addr=0, end_addr=0, min_len=2, has_cjk=True, 
-    f_extract: Callable[[bytes, Union[str, List[str]]], 
-        Tuple[List[int], List[bytes]]]=None):
+    start_addr=0, end_addr=0, 
+    min_len=2, has_cjk=True):
     """
     export all the text to txt file in utf-8
     :param encoding: the encoding to the inpath, 
@@ -651,26 +703,23 @@ def extract_ftextobj(binobj: Union[str, bytes],
     if end_addr == 0: end_addr = len(data)
     print(f"size={len(data):x}, startaddr={start_addr:x}, endaddr={end_addr:x}")
    
-    if f_extract:
-        addrs, texts_data = f_extract(data, tbl)
-    else:
-        if tbl is not None:
-            addrs, texts_data = extract_texttbl(
-                data[start_addr: end_addr], tbl, min_len=min_len)
-        elif encoding =="utf-8" :
-            addrs, texts_data = extract_textutf8(
-                data[start_addr: end_addr], min_len=min_len)
-        elif encoding == "sjis":
-            addrs, texts_data = extract_textsjis(
-                data[start_addr: end_addr], min_len=min_len)
-        elif encoding == "unicode":
-            addrs, texts_data = extract_textunicode(
-                data[start_addr: end_addr], min_len=min_len)
-            encoding = 'utf-16'
-        else: 
-            addrs, texts_data = extract_textmultichar(
-                data[start_addr: end_addr], 
-                encoding=encoding, min_len=min_len)
+    if tbl is not None:
+        addrs, texts_data = extract_texttbl(
+            data[start_addr: end_addr], tbl, min_len=min_len)
+    elif encoding =="utf-8" :
+        addrs, texts_data = extract_textutf8(
+            data[start_addr: end_addr], min_len=min_len)
+    elif encoding == "sjis":
+        addrs, texts_data = extract_textsjis(
+            data[start_addr: end_addr], min_len=min_len)
+    elif encoding == "unicode":
+        addrs, texts_data = extract_textunicode(
+            data[start_addr: end_addr], min_len=min_len)
+        encoding = 'utf-16'
+    else: 
+        addrs, texts_data = extract_textmultichar(
+            data[start_addr: end_addr], 
+            encoding=encoding, min_len=min_len)
     addrs = map(lambda x: x + start_addr, addrs)
 
     ftexts = []
@@ -687,13 +736,7 @@ def extract_ftextobj(binobj: Union[str, bytes],
         text = text.replace('\n', r'[\n]')
         text = text.replace('\r', r'[\r]')
 
-        if has_cjk:
-            flag = False
-            for c in text:
-                if iscjk(c):
-                    flag = True
-                    break
-            if flag is False: continue
+        if has_cjk and not hascjk(text): continue
         
         ftexts.append({'addr':addr, 'size':size, 'text':text})
         print("at 0x%06X %d bytes extraced" % (addr, size))
@@ -707,7 +750,7 @@ def debug():
 
 def main(cmdstr=None):
     parser = argparse.ArgumentParser(
-        description="bintext v0.5.7, developed by devseed")
+        description="bintext v0.5.8, developed by devseed")
     
     # input and output
     parser.add_argument('inpath', type=str)
@@ -818,4 +861,5 @@ v0.5.4, add extraxt --start, --end parameter
 v0.5.5, add extract_unicode for 0x2 aligned unicode
 v0.5.6, add typing hint and prepare read lines for pyscript in web
 v0.5.7, add repalced map in check method, fix -e in check 
+v0.5.8, add f_extension for {{}}, f_adjust in patch_text, 
 """

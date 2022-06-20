@@ -110,6 +110,8 @@ def lcs(s1:str, s2:str) -> List[List[int]]:
     calculate the longeset common sequence legth of s1 and s2
     """
     l1, l2 = len(s1), len(s2)
+    if l1 == 0: return l2
+    if l2 == 0: return l1
     res = [[0 for j in range(l2+1)] for i in range(l1+1)]
     for i in range(1, l1+1):
         for j in range(1, l2+1):
@@ -123,6 +125,8 @@ def distance_lcs(s1: str, s2: str) -> int:
 def distance_Levenshtein(s1: str, s2: str) -> int:
     
     l1, l2 = len(s1), len(s2)
+    if l1 == 0: return l2
+    if l2 == 0: return l1
     res = [[0 for j in range(l2)] for i in range(l1)]
     for i in range(0, l1):
         for j in range(0, l2):
