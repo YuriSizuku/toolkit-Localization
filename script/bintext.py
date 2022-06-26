@@ -654,7 +654,7 @@ def patch_ftextobj(ftextobj: Union[str, List[str]],
     
     if type(binobj) == str:
         with open(binobj, 'rb') as fp:
-            data = fp.read()
+            data = bytearray(fp.read())
     else: data = binobj
     
     if tblobj!="": tbl = load_tbl(tblobj, encoding)
@@ -861,5 +861,5 @@ v0.5.4, add extraxt --start, --end parameter
 v0.5.5, add extract_unicode for 0x2 aligned unicode
 v0.5.6, add typing hint and prepare read lines for pyscript in web
 v0.5.7, add repalced map in check method, fix -e in check 
-v0.5.8, add f_extension for {{}}, f_adjust in patch_text, 
+v0.5.8, add f_extension for {{}}, f_adjust in patch_text
 """

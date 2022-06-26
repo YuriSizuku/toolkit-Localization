@@ -54,9 +54,9 @@ def load_tbl(inobj: Union[str, List[str]],
         m = re_line.match(line)
         if m is not None:
             d = int(m.group(1), 16)
-            if d<0xff:
+            if d <= 0xff:
                 charcode = struct.pack("<B", d)
-            elif d>0xff and d<0xffff:
+            elif d > 0xff and d < 0xffff:
                 charcode = struct.pack(">H", d)
             else:
                 charcode = struct.pack(">BBB", 
@@ -162,7 +162,8 @@ def replace_tblchar(tbl: List[Tuple[bytes, str]],
 
 def find_tbladdcharidxs(tblbase: List[Tuple[bytes, str]], 
     tbltarget: List[Tuple[bytes, str]], 
-    index_same: List[int]=None) -> List[int]:
+    index_same: List[int]=None,
+    index_reserved: List[int]=None) -> List[int]:
     """
     find which position of tbltarget is the adding char
     from the tblbase, and which shares the same char
@@ -177,6 +178,8 @@ def find_tbladdcharidxs(tblbase: List[Tuple[bytes, str]],
         tblbase_map.update({t[1]: i})
     
     for i, t in enumerate(tbltarget): 
+        if index_reserved and i in index_reserved:
+            continue
         if (t[1] not in tblbase_map) \
             and (t[1] not in adding_char):
             adding_char.add(t[1])
@@ -230,7 +233,7 @@ def merge_tbl(tbl1: List[Tuple[bytes, str]],
     """
     tbl = []
     for i in range(len(tbl1)):
-        if i<len(tbl2): c= tbl2[i][1]
+        if i < len(tbl2): c= tbl2[i][1]
         else: c='・'
         tbl.append((tbl1[i][0], c))
     if outpath!="": dump_tbl(tbl, outpath)
@@ -251,17 +254,22 @@ def rebuild_tbl(tblbase: List[Tuple[bytes, str]],
     def _find_replacedidx(start, end, step, 
         index_reserved: List[int], index_same: List[int]):
         for i in range(start, end, order):
-            if (i not in index_reserved) \
-                and (i not in index_same):
-                yield  i
+            if i not in index_same:
+                if index_reserved is None:
+                    yield i
+                elif i not in index_reserved:
+                    yield i
 
-    if len(tblnew) > len(tblbase):
-        print("rebuild_tbl error! tbl_new(%d) is longer that tbl_base(%d)", len(tblnew), len(tblbase))
+    n_reserved = 0 if index_reserved is None else len(index_reserved)
+    if len(tblnew) > len(tblbase) - n_reserved:
+        print("rebuild_tbl error! tbl_new(%d) is longer that tbl_base(%d)" 
+            % (len(tblnew), len(tblbase)))
         return None
 
     index_same = []
-    index_adding = find_tbladdcharidxs(
-        tblbase, tblnew, index_same)
+    index_adding = find_tbladdcharidxs(tblbase, tblnew, 
+        index_same = index_same, 
+        index_reserved=index_reserved)
     tblrebuild = copy.deepcopy(tblbase)
     print("rebuild_tbl base_char=%d, "\
           "adding_char=%d, same_char=%d" %
@@ -418,14 +426,13 @@ def gray2tilefont(gray: np.array, char_height, char_width,
     def f_encode_default(data, gray, bpp, idx, idx_x, idx_y):
         start = int(idx)
         if bpp==8:
-            d = gray[idx_y][idx_x]
-            struct.pack('<B', data[start:start+1], d)
+            data[start] = gray[idx_y][idx_x]
         else:
             print("Invalid bpp value!")
             return None
 
-    height, width, _ = gray.shape
-    n = (height/char_height) * (width/char_width) 
+    height, width = gray.shape
+    n = (height//char_height) * (width//char_width) 
     if n_char != 0 and n_char < n: n = n_char
     size = math.ceil(n*bpp/8*char_height*char_width) 
     data = bytearray(size)
@@ -552,7 +559,7 @@ def build_tilefont(inpath, char_height, char_width,
         fp.write(data)
     print(outpath + " tile font built!")
 
-def build_picturefont(ttfpath, tblpath, 
+def build_picturefont(ttfpath, tblobj, 
     char_width, char_height, 
     n_row=64, outpath="", *, padding=(0,0,0,0), 
     pt=0, shift_x=0, shift_y=0) -> np.array:
@@ -561,8 +568,8 @@ def build_picturefont(ttfpath, tblpath,
     :param padding: (up, down, left, right)
     """
     
-    if type(tblpath) != str: tbl = tblpath
-    else: tbl = load_tbl(tblpath)
+    if type(tblobj) != str: tbl = tblobj
+    else: tbl = load_tbl(tblobj)
     n = len(tbl)
     width = n_row*char_width + padding[2] + padding[3]
     height = math.ceil(n/n_row)*char_height + padding[0] + padding[1]
