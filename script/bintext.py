@@ -404,7 +404,7 @@ def extract_textmultichar(data, encoding,
 def patch_text(orgdata: bytearray, 
     ftexts: List[Dict[str, Union[int, str]]],
     encoding='utf-8', tbl: List[Tuple[bytes, str]]=None, 
-    is_copy=False, can_longer=False, is_mute=False, 
+    is_copy=False, can_longer=False, can_shorter=False, is_mute=False, 
     replace_map: Dict[str, str]=None, padding_bytes=b'\x00', 
     search_data=None, *, jump_table: Dict[str, int]=None, 
     f_extension: Callable[[str, Any], str]=
@@ -423,7 +423,7 @@ def patch_text(orgdata: bytearray,
     :param jump_table: a dict array with 
         {'addr':, 'addr_new':, 'jumpto':, 'jumpto_new':}
     :f_extension: parse the extension to replace, like {{\xab\xcd}}
-    :f_adjust: some adjusting after import text,  
+    :f_adjust: some adjusting before import text,  
         f_adjust(orgdata, targetdata, orgaddr, orgsize, shift, fargs_adjust)
     """
     
@@ -474,15 +474,27 @@ def patch_text(orgdata: bytearray,
                 bufio.write(_bytes)
                 start = end + 2
 
-        if bufio.tell() <= size : 
-            bufio.write(
-                (size-bufio.tell())//len(padding_bytes) 
-                * padding_bytes)
+        if bufio.tell() <= size: 
+            if not can_shorter:
+                bufio.write(
+                    (size-bufio.tell())//len(padding_bytes) 
+                    * padding_bytes)
+                if bufio.tell() <= size:
+                    bufio.write(padding_bytes[:size-bufio.tell()])
         else: 
             if not is_mute:
                 print("at 0x%06X, %d bytes is lager than %d bytes!"
                     %(addr, bufio.tell(), size))
 
+        # patch the data
+        if can_longer: targetbytes = bufio.getbuffer()
+        else: targetbytes = bufio.getbuffer()[0:size]
+        if f_adjust: # adjust some information before patch text
+            f_adjust(data, targetbytes, 
+                addr, size, shift, fargs_adjust)
+        data[addr+shift: addr+shift+size] = targetbytes
+        shift += len(targetbytes) - size
+        
         # adjust the jump_table
         if jump_table is not None:
             for t in jump_table:
@@ -490,18 +502,7 @@ def patch_text(orgdata: bytearray,
                     t['addr_new'] = t['addr'] + shift
                 if t['jumpto'] >= addr:  
                     t['jumpto_new'] = t['jumpto'] + shift
-
-        # adjust some information after import text
-        if f_adjust:
-            f_adjust(data, bufio.getbuffer(), 
-                addr, size, shift, fargs_adjust)
-
-        # patch the data
-        if not can_longer:
-            data[addr+shift: addr+shift+size] = bufio.getbuffer()[0:size]
-        else:
-            data[addr+shift: addr+shift+size] = bufio.getbuffer()
-            shift += bufio.tell() - size
+        
         if not is_mute:
             print("at 0x%06X, %d bytes replaced!" % (addr+shift, size))
  
@@ -640,9 +641,16 @@ def shift_ftextobj(ftextobj: Union[str, List[str]]
             
 def patch_ftextobj(ftextobj: Union[str, List[str]], 
     binobj: Union[str, bytes], outpath="out.bin", 
-    encoding = 'utf-8', searchobj: Union[str, bytes]="",
-    padding_bytes=b"\x00", tblobj: Union[str, List[str]]="", 
-    can_longer=False, replace_map: Dict[str, str]=None) -> bytes:
+    encoding = 'utf-8', tblobj: Union[str, List[str]]="",
+    can_longer=False, can_shorter=False, 
+    replace_map: Dict[str, str]=None,
+    padding_bytes=b"\x00", searchobj: Union[str, bytes]="", 
+    *, jump_table: Dict[str, int]=None, 
+    f_extension: Callable[[str, Any], str]=
+        lambda x, args: eval(x), fargs_extension=None, 
+    f_adjust: Callable[[bytearray, bytes, 
+        int, int, int, Any], None]=None, fargs_adjust=None
+    ) -> bytes:
     """
     import the text in textpath to insertpath, make the imported file as outpath
     ftexts should always using encoding utf-8
@@ -670,9 +678,12 @@ def patch_ftextobj(ftextobj: Union[str, List[str]],
     else: search_data = searchobj
 
     data = patch_text(data, ftexts2, 
-        search_data=search_data,encoding=encoding, 
-        padding_bytes=padding_bytes, tbl=tbl,
-        can_longer=can_longer, replace_map=replace_map)
+        encoding=encoding, tbl=tbl, 
+        can_longer=can_longer, can_shorter=can_shorter,
+        replace_map=replace_map,padding_bytes=padding_bytes,
+        search_data=search_data,jump_table=jump_table,
+        f_extension=f_extension, fargs_extension=fargs_extension,
+        f_adjust=f_adjust, fargs_adjust=fargs_adjust)
     
     if outpath!="":
         with open(outpath, "wb") as fp:
@@ -795,6 +806,8 @@ def main(cmdstr=None):
     pathchcfg = parser.add_argument_group(title="patch config")
     pathchcfg.add_argument('--can_longer', action='store_true', 
         help="inserted text can be longer than the original")
+    pathchcfg.add_argument('--can_shorter', action='store_true', 
+        help="inserted text can be longer than the original")
     pathchcfg.add_argument('--search_file', type=str, 
         default="", help="search the origin text for replace")
     pathchcfg.add_argument('--padding_bytes', 
@@ -823,11 +836,11 @@ def main(cmdstr=None):
         merge_ftextobj(args.inpath, args.merge, args.outpath)
     elif args.patch:
         patch_ftextobj(args.inpath, args.patch, args.outpath, 
-            encoding=args.encoding, 
-            searchobj = args.search_file,  
-            padding_bytes=bytes(args.padding_bytes), 
-            tblobj=args.tbl, can_longer=args.can_longer, 
-            replace_map=replace_map)
+            encoding=args.encoding,  tblobj=args.tbl,
+            can_longer=args.can_longer,  can_shorter=args.can_shorters,
+            replace_map=replace_map, 
+            padding_bytes=bytes(args.padding_bytes),
+            searchobj = args.search_file)
     else:
         extract_ftextobj(args.inpath, args.outpath, 
             encoding=args.encoding, tblobj=args.tbl, 

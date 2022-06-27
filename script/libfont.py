@@ -162,8 +162,7 @@ def replace_tblchar(tbl: List[Tuple[bytes, str]],
 
 def find_tbladdcharidxs(tblbase: List[Tuple[bytes, str]], 
     tbltarget: List[Tuple[bytes, str]], 
-    index_same: List[int]=None,
-    index_reserved: List[int]=None) -> List[int]:
+    index_same: List[int]=None) -> List[int]:
     """
     find which position of tbltarget is the adding char
     from the tblbase, and which shares the same char
@@ -178,8 +177,6 @@ def find_tbladdcharidxs(tblbase: List[Tuple[bytes, str]],
         tblbase_map.update({t[1]: i})
     
     for i, t in enumerate(tbltarget): 
-        if index_reserved and i in index_reserved:
-            continue
         if (t[1] not in tblbase_map) \
             and (t[1] not in adding_char):
             adding_char.add(t[1])
@@ -242,7 +239,7 @@ def merge_tbl(tbl1: List[Tuple[bytes, str]],
 
 def rebuild_tbl(tblbase: List[Tuple[bytes, str]], 
     tblnew: List[Tuple[bytes, str]], outpath="", 
-    encoding="utf-8", *, start_idx=-1, order=-1, 
+    encoding="utf-8", *, start=-1, end=-1, step = -1,
     index_reserved: List[int]=None) -> List[Tuple[bytes, str]]:
     """
     merge two tbl with the same position of the same char
@@ -253,7 +250,7 @@ def rebuild_tbl(tblbase: List[Tuple[bytes, str]],
 
     def _find_replacedidx(start, end, step, 
         index_reserved: List[int], index_same: List[int]):
-        for i in range(start, end, order):
+        for i in range(start, end, step):
             if i not in index_same:
                 if index_reserved is None:
                     yield i
@@ -267,30 +264,27 @@ def rebuild_tbl(tblbase: List[Tuple[bytes, str]],
         return None
 
     index_same = []
-    index_adding = find_tbladdcharidxs(tblbase, tblnew, 
-        index_same = index_same, 
-        index_reserved=index_reserved)
+    index_adding = find_tbladdcharidxs(
+        tblbase, tblnew, index_same=index_same)
     tblrebuild = copy.deepcopy(tblbase)
     print("rebuild_tbl base_char=%d, "\
-          "adding_char=%d, same_char=%d" %
-        (len(tblbase), len(index_adding), len(index_same)))
+          "adding_char=%d, same_char=%d, reserved_char=%d" %
+        (len(tblbase), len(index_adding), len(index_same), n_reserved))
    
-    if start_idx < 0: 
-        start_idx += len(tblbase)
-        end_idx = 0
-    else:
-        end_idx = len(tblbase)
-    gen_replaced_idx = _find_replacedidx(start_idx, end_idx,
-        order, index_reserved, index_same)
+    if start < 0: start += len(tblbase)
+    gen_replaced_idx = _find_replacedidx(
+        start, end, step, 
+        index_reserved, index_same)
     for i in range(len(index_adding)):
         c = tblnew[index_adding[i]][1]
-        idx = next(gen_replaced_idx)
-        if idx is None:
-            print("rebuild_tbl error! can not find replacespace!")
+        try:
+            idx = next(gen_replaced_idx)
+            charcode = tblbase[idx][0]
+            tblrebuild[idx] = (charcode, c)
+        except StopIteration:
+            print(f"rebuild_tbl error: no replacespace!, i={i}")
             return None
-        charcode = tblbase[idx][0]
-        tblrebuild[idx] = (charcode, c)
-    
+
     if outpath!="": dump_tbl(tblrebuild, outpath, encoding)
     return tblrebuild
 
