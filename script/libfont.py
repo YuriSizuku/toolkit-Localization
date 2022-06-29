@@ -53,17 +53,13 @@ def load_tbl(inobj: Union[str, List[str]],
         if not line : break
         m = re_line.match(line)
         if m is not None:
-            d = int(m.group(1), 16)
-            if d <= 0xff:
-                charcode = struct.pack("<B", d)
-            elif d > 0xff and d < 0xffff:
-                charcode = struct.pack(">H", d)
-            else:
-                charcode = struct.pack(">BBB", 
-                    d>>16, (d>>8)&0xff, d&0xff)
+            charcode = bytearray()
+            for i in range(0, len(m.group(1)), 2):
+                d = int(m.group(1)[i: i+2], 16)
+                charcode += d.to_bytes(1, 'little') 
             c = m.group(2)
             tbl.append((charcode, c))
-
+            
     return tbl
 
 # lib func functions
