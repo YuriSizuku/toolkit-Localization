@@ -224,9 +224,9 @@ def decode_tbl(data: bytes,
     return text.getvalue()
 
 def extract_textutf8 (data, min_len=3) \
-    -> Tuple[List[int], List[bytes]]:
+    -> Tuple[List[int], List[int]]:
 
-    addrs, texts_data = [], []
+    addrs, sizes = [], []
     utf8_lead_byte_to_count = []
     for i in range(256):
         utf8_lead_byte_to_count.append(1 + (i >= 0xe0) + (i >= 0xf0) if 0xbf < i < 0xf5 else 0)
@@ -242,7 +242,7 @@ def extract_textutf8 (data, min_len=3) \
                 if start != -1:
                     if i - start >= min_len:
                         addrs.append(start)
-                        texts_data.append(data[start:i])
+                        sizes.append(i-start)
                     start = -1
             i += 1
         else:  
@@ -254,15 +254,15 @@ def extract_textutf8 (data, min_len=3) \
                 if start != -1:
                     if i - start >= min_len:
                         addrs.append(start)
-                        texts_data.append(data[start:i])
+                        sizes.append(i-start)
                     start = -1
                 i += 1
-    return addrs, texts_data
+    return addrs, sizes
 
 def extract_textsjis(data, min_len=2) \
-    -> Tuple[List[int], List[bytes]]:
+    -> Tuple[List[int], List[int]]:
 
-    addrs, texts_data = [], []
+    addrs, sizes = [], []
     i = 0
     start = -1
     while i<len(data):
@@ -288,19 +288,19 @@ def extract_textsjis(data, min_len=2) \
             if start != -1:
                 if i - start >= min_len:
                     addrs.append(start)
-                    texts_data.append(data[start:i])
+                    sizes.append(i-start)
                 start = -1
             i += 1
         else:
             if start == -1:
                 start = i
 
-    return addrs, texts_data
+    return addrs, sizes
 
 def extract_textunicode(data, min_len=2) \
-    -> Tuple[List[int], List[bytes]]:
+    -> Tuple[List[int], List[int]]:
 
-    addrs, texts_data = [], []
+    addrs, sizes = [], []
     i = 0
     start = -1 
     while i+2 < len(data):
@@ -310,7 +310,7 @@ def extract_textunicode(data, min_len=2) \
                 if i-start >= min_len:
                     print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
                     addrs.append(start)
-                    texts_data.append(data[start:i])
+                    sizes.append(start-i)
                 start = -1
             i += 2
         elif u1 >= 0x20 and u1 <= 0x7f:
@@ -326,19 +326,19 @@ def extract_textunicode(data, min_len=2) \
                     if i-start >= min_len:
                         print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
                         addrs.append(start)
-                        texts_data.append(data[start:i])
+                        sizes.append(start-i)
                     start = -1
                 i += 2
-    return addrs, texts_data
+    return addrs, sizes
 
 def extract_texttbl(data, tbl: List[Tuple[bytes, str]], 
-    min_len=2) -> Tuple[List[int], List[bytes]]: 
+    min_len=2) -> Tuple[List[int], List[int]]: 
     """
     :param tbl: the customized charcode mapping to encoding charcode
     :return: all the extracted text is in utf-8
     """
 
-    addrs, texts_data = [], []
+    addrs, sizes = [], []
     i = 0
     start = -1 
     while i<len(data):
@@ -358,16 +358,16 @@ def extract_texttbl(data, tbl: List[Tuple[bytes, str]],
                 if i-start >= min_len:
                     print("detected text in [{:X}:{:X}] through tbl".format(start, i))
                     addrs.append(start)
-                    texts_data.append(data[start:i])
+                    sizes.append(i-start)
                 start = -1
             i += 1
         
-    return addrs, texts_data
+    return addrs, sizes
 
 def extract_textmultichar(data, encoding, 
-    min_len=2) -> Tuple[List[int], List[bytes]]:
+    min_len=2) -> Tuple[List[int], List[int]]:
 
-    addrs, texts_data = [], []
+    addrs, sizes = [], []
     i = 0
     start = -1 
     while i<len(data):
@@ -377,7 +377,7 @@ def extract_textmultichar(data, encoding,
                 if i-start >= min_len:
                     print("detected text in [{:X}:{:X}] through {:s}".format(start, i, encoding))
                     addrs.append(start)
-                    texts_data.append(data[start:i])
+                    sizes.append(i-start)
                 start = -1
             i += 1
         elif c1 >= 0x20 and c1 <= 0x7f:
@@ -393,10 +393,10 @@ def extract_textmultichar(data, encoding,
                     if i-start >= min_len:
                         print("detected text in [{:X}:{:X}] through {:s}".format(start, i, encoding))
                         addrs.append(start)
-                        texts_data.append(data[start:i])
+                        sizes.append(i-start)
                     start = -1
                 i += 1
-    return addrs, texts_data
+    return addrs, sizes
 
 def patch_text(orgdata: bytearray, 
     ftexts: List[Dict[str, Union[int, str]]],
@@ -712,38 +712,36 @@ def extract_ftextobj(binobj: Union[str, bytes],
     print(f"size={len(data):x}, startaddr={start_addr:x}, endaddr={end_addr:x}")
    
     if tbl is not None:
-        addrs, texts_data = extract_texttbl(
+        addrs, sizes = extract_texttbl(
             data[start_addr: end_addr], tbl, min_len=min_len)
     elif encoding =="utf-8" :
-        addrs, texts_data = extract_textutf8(
+        addrs, sizes = extract_textutf8(
             data[start_addr: end_addr], min_len=min_len)
     elif encoding == "sjis":
-        addrs, texts_data = extract_textsjis(
+        addrs, sizes = extract_textsjis(
             data[start_addr: end_addr], min_len=min_len)
     elif encoding == "unicode":
-        addrs, texts_data = extract_textunicode(
+        addrs, sizes = extract_textunicode(
             data[start_addr: end_addr], min_len=min_len)
         encoding = 'utf-16'
     else: 
-        addrs, texts_data = extract_textmultichar(
+        addrs, sizes = extract_textmultichar(
             data[start_addr: end_addr], 
             encoding=encoding, min_len=min_len)
     addrs = map(lambda x: x + start_addr, addrs)
 
     ftexts = []
-    for i,(addr, text_data) in enumerate(zip(addrs,texts_data)):
-        size = len(text_data)
-        if tbl is  None:
+    for i,(addr, size) in enumerate(zip(addrs, sizes)):
+        if tbl is None:
             try:
-                text = text_data.decode(encoding)
+                text = data[addr: addr+size].decode(encoding)
             except UnicodeDecodeError as e:
                 print("%s at %05d %06X"%(e, i, addr))
                 continue
         else: 
-            text = decode_tbl(text_data, tbl)
+            text = decode_tbl( data[addr: addr+size], tbl)
         text = text.replace('\n', r'[\n]')
         text = text.replace('\r', r'[\r]')
-
         if has_cjk and not hascjk(text): continue
         
         ftexts.append({'addr':addr, 'size':size, 'text':text})

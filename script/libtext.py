@@ -1,6 +1,6 @@
  # -*- coding: utf-8 -*-
 """
-Some functions about the text maniqulate, such as match text, text length, etc.
+Some functions about the text manipulate, such as match text, text length, etc.
     v0.2.2, developed by devseed
 """
 
