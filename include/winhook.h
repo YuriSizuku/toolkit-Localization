@@ -134,6 +134,7 @@ INLINE BOOL winhook_iathookpe(LPCSTR targetDllName,
 /*
     inline hooks wrapper, 
     pfnTargets -> pfnNews, save origin pointers in pfnOlds
+    return: success hook numbers
 */
 WINHOOKDEF WINHOOK_EXPORT
 int winhook_inlinehooks(PVOID pfnTargets[],
@@ -482,12 +483,15 @@ int winhook_inlinehooks(PVOID pfnTargets[],
     PVOID pfnNews[], PVOID pfnOlds[], size_t n)
 {
     int i;
-    if (MH_Initialize() != MH_OK)  return 0;
+    MH_Initialize();
     for(i=0; i<n ;i++)
     {
+        MH_STATUS status;
         if(!pfnNews[i]) continue;
-        MH_CreateHook(pfnTargets[i], pfnNews[i], &pfnOlds[i]);
-        MH_EnableHook(pfnTargets[i]);
+        status = MH_CreateHook(pfnTargets[i], pfnNews[i], &pfnOlds[i]);
+        if(status!=MH_OK) return i;
+        status = MH_EnableHook(pfnTargets[i]);
+        if(status!=MH_OK) return i;
     }
     return i;
 }

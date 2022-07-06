@@ -501,7 +501,7 @@ def patch_text(orgdata: bytearray,
                     t['jumpto_new'] = t['jumpto'] + shift
         
         if not is_mute:
-            print("at 0x%06X, %d bytes replaced!" % (addr+shift, size))
+            print("at 0x%06X, %d bytes replaced!" % (addr, size))
  
     return data
         

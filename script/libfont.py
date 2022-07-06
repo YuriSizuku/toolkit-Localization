@@ -188,31 +188,40 @@ def find_tbladdcharidxs(tblbase: List[Tuple[bytes, str]],
 
 def align_tbl(tbl: List[Tuple[bytes, str]], 
         gap_map: Dict[int, int] = None, 
-        padding_item: Tuple[bytes, str]=(b'\xea\xa4', ''), 
+        padding_item: Tuple[bytes, str]=(b'\xff', ''), 
+        static_index=False, 
         outpath="") -> List[Tuple[bytes, str]]:
     """
     align_glphys_tbl, manualy align tbl for glphys 
         by the adding offset(+-) in gap_map at some position  
+    :param static_index: the index not change after gap_map
     """
     tblaligned = []
     skip = 0
+    cur = 0
     for i, t in enumerate(tbl):
         if skip > 0:
             skip -= 1
             continue
 
-        if gap_map is not None and i in gap_map:
-            n = gap_map[i]
+        if static_index: cur = i
+        elif cur != -1:  cur = len(tblaligned)
+
+        if gap_map is not None and cur in gap_map:
+            n = gap_map[cur]
             if  n < 0:
                 skip = -n
                 skip -= 1
+                cur = -1
                 continue
             elif n > 0:
                 tblaligned.append(t)
                 for j in range(n): # dup place holder
                     tblaligned.append(padding_item) 
+                cur = 0
         else:
             tblaligned.append(t)
+            cur = 0
     
     if outpath!="": dump_tbl(tblaligned, outpath)
     return tblaligned
@@ -232,6 +241,35 @@ def merge_tbl(tbl1: List[Tuple[bytes, str]],
     if outpath!="": dump_tbl(tbl, outpath)
     print("tbl1 " + str(len(tbl1)) + ",  tbl2 "+ str(len(tbl2)) + " merged!")
     return tbl
+
+def combine_tbls(tbls: List[List[Tuple[bytes, str]]], 
+    skiplist: List[bytes] = [b'\xff']):
+
+    """
+    merage multi tbl to one tbl
+    :return: tbl, charmap {tblidx: (tblsidxi, tblidxj)}
+    """
+
+    tblfull = []
+    charmap: Dict[int, Tuple[int, int]] = dict()
+    for i, tbl in enumerate(tbls):
+        for j, (charcode, c) in enumerate(tbl):
+            if charcode in skiplist: continue
+            charmap.update({len(tblfull): (i, j)})
+            tblfull.append((charcode, c))
+    return tblfull, charmap
+
+def update_tbls(tbls: List[List[Tuple[bytes, str]]], 
+    tbl: List[Tuple[bytes, str]], 
+    charmap: Dict[int, Tuple[int, int]]):
+    """
+    update tbls by one tbl and charmap of tbl
+    """
+
+    for k, v in charmap:
+        tbls[v[0]][v[1]] = tbl[k]
+
+    return tbls
 
 def rebuild_tbl(tblbase: List[Tuple[bytes, str]], 
     tblnew: List[Tuple[bytes, str]], outpath="", 
@@ -597,4 +635,5 @@ v0.2.1, align_tbl, manualy align tbl for glphys
 v0.2.2, replace_char, to replace useless char to new char in tbl
 v0.2.3, fix some problem of encoding, img to tile font alpha value
 v0.2.4, add typing hint and rename some functions
+v0.2.5, add combine_tbls, update_tbls function for tbl pages
 """

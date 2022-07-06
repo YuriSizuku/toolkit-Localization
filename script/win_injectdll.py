@@ -10,8 +10,12 @@ import argparse
 import lief
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32, KS_MODE_64
 
-# This might be regared as virus by windows defender, can not be ASLR
 def injectdll_iat(exepath, dllpath, outpath="out.exe"): 
+    """
+    This might be regared as virus by windows defender, 
+    can not be ASLR
+    """
+
     binary_exe = lief.parse(exepath)
     binary_dll = lief.parse(dllpath)
     
@@ -34,8 +38,12 @@ def injectdll_iat(exepath, dllpath, outpath="out.exe"):
     builder.build()
     builder.write(outpath)
 
-# change the oep and use codecave for LoadLibraryA dll
 def injectdll_codecave(exepath, dllpath, outpath="out.exe"):
+    """
+    change the oep and use codecave for LoadLibraryA dll
+    this is not recommended as lief new version error
+    """
+
     # parsing pe
     pe = lief.parse(exepath)
     pe_oph = pe.optional_header
@@ -117,8 +125,11 @@ def injectdll_codecave(exepath, dllpath, outpath="out.exe"):
     builder.build()
     builder.write(outpath)
 
-# change the oep and append dll as section in exe
 def injectdll_codecave2(exepath, dllpath, outpath="out.exe", aslr=False):
+    """
+    change the oep and append dll as section in exe
+    """
+
     # parsing pe
     pe = lief.parse(exepath)
     pe_oph = pe.optional_header
