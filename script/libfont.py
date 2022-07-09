@@ -266,7 +266,7 @@ def update_tbls(tbls: List[List[Tuple[bytes, str]]],
     update tbls by one tbl and charmap of tbl
     """
 
-    for k, v in charmap:
+    for k, v in charmap.items():
         tbls[v[0]][v[1]] = tbl[k]
 
     return tbls
@@ -603,7 +603,7 @@ def build_picturefont(ttfpath, tblobj,
     height = math.ceil(n/n_row)*char_height + padding[0] + padding[1]
     img = np.zeros((height, width, 4), dtype=np.uint8)
     print("to build picture %dX%d with %d charactors..."
-        %(width, height, n))
+        % (width, height, n))
     
     ptpxmap = {8:6, 9:7, 16:12, 
         18:14, 24:18, 32:24, 48:36}

@@ -10,6 +10,7 @@ import codecs
 import argparse
 from io import StringIO, BytesIO
 from typing import Any, Callable, Tuple, Union, List, Dict
+from unittest.mock import patch
 
 # lib functions
 def iscjk(c: bytes): 
@@ -401,7 +402,8 @@ def extract_textmultichar(data, encoding,
 def patch_text(orgdata: bytearray, 
     ftexts: List[Dict[str, Union[int, str]]],
     encoding='utf-8', tbl: List[Tuple[bytes, str]]=None, 
-    is_copy=False, can_longer=False, can_shorter=False, is_mute=False, 
+    can_longer=False, can_shorter=False, 
+    align=1, is_copy=False, is_mute=False, 
     replace_map: Dict[str, str]=None, padding_bytes=b'\x00', 
     search_data=None, *, jump_table: Dict[str, int]=None, 
     f_extension: Callable[[str, Any], str]=
@@ -421,9 +423,14 @@ def patch_text(orgdata: bytearray,
         {'addr':, 'addr_new':, 'jumpto':, 'jumpto_new':}
     :f_extension: parse the extension to replace, like {{\xab\xcd}}
     :f_adjust: some adjusting before import text,  
-        f_adjust(orgdata, targetdata, orgaddr, orgsize, shift, fargs_adjust)
+        f_adjust(data, targetbytes, orgaddr, orgsize, shift, fargs_adjust)
     """
     
+    def _padding(n):
+        l1 = n //len(padding_bytes)
+        l2 = n % len(padding_bytes)
+        return l1*padding_bytes + padding_bytes[:l2]
+
     if not is_copy: data = orgdata
     else: data = bytearray(orgdata)
     
@@ -471,17 +478,22 @@ def patch_text(orgdata: bytearray,
                 bufio.write(_bytes)
                 start = end + 2
 
+        # add padding for size
         if bufio.tell() <= size: 
             if not can_shorter:
-                bufio.write(
-                    (size-bufio.tell())//len(padding_bytes) 
-                    * padding_bytes)
-                if bufio.tell() <= size:
-                    bufio.write(padding_bytes[:size-bufio.tell()])
+                bufio.write(_padding(size-bufio.tell()))
         else: 
             if not is_mute:
                 print("at 0x%06X, %d bytes is lager than %d bytes!"
                     %(addr, bufio.tell(), size))
+
+        # add padding for align
+        d = bufio.tell() - size
+        if d % align != 0:
+            if d > 0: # longer
+                bufio.write(_padding(align - d%align))
+            else: # shorter
+                bufio.write(_padding(d%align))
 
         # patch the data
         if can_longer: targetbytes = bufio.getbuffer()
@@ -639,7 +651,7 @@ def shift_ftextobj(ftextobj: Union[str, List[str]]
 def patch_ftextobj(ftextobj: Union[str, List[str]], 
     binobj: Union[str, bytes], outpath="out.bin", 
     encoding = 'utf-8', tblobj: Union[str, List[str]]="",
-    can_longer=False, can_shorter=False, 
+    can_longer=False, can_shorter=False, align=1,
     replace_map: Dict[str, str]=None,
     padding_bytes=b"\x00", searchobj: Union[str, bytes]="", 
     *, jump_table: Dict[str, int]=None, 
@@ -676,7 +688,7 @@ def patch_ftextobj(ftextobj: Union[str, List[str]],
 
     data = patch_text(data, ftexts2, 
         encoding=encoding, tbl=tbl, 
-        can_longer=can_longer, can_shorter=can_shorter,
+        can_longer=can_longer, can_shorter=can_shorter, align=align,
         replace_map=replace_map,padding_bytes=padding_bytes,
         search_data=search_data,jump_table=jump_table,
         f_extension=f_extension, fargs_extension=fargs_extension,
@@ -803,6 +815,8 @@ def main(cmdstr=None):
         help="inserted text can be longer than the original")
     pathchcfg.add_argument('--can_shorter', action='store_true', 
         help="inserted text can be longer than the original")
+    pathchcfg.add_argument('--align', type=int, default=1, 
+        help="the align number for patching, when --can_longer")
     pathchcfg.add_argument('--search_file', type=str, 
         default="", help="search the origin text for replace")
     pathchcfg.add_argument('--padding_bytes', 
@@ -831,9 +845,9 @@ def main(cmdstr=None):
         merge_ftextobj(args.inpath, args.merge, args.outpath)
     elif args.patch:
         patch_ftextobj(args.inpath, args.patch, args.outpath, 
-            encoding=args.encoding,  tblobj=args.tbl,
+            encoding=args.encoding,  tblobj=args.tbl, 
             can_longer=args.can_longer,  can_shorter=args.can_shorter,
-            replace_map=replace_map, 
+            align=args.align, replace_map=replace_map, 
             padding_bytes=bytes(args.padding_bytes),
             searchobj = args.search_file)
     else:
@@ -869,5 +883,5 @@ v0.5.4, add extraxt --start, --end parameter
 v0.5.5, add extract_unicode for 0x2 aligned unicode
 v0.5.6, add typing hint and prepare read lines for pyscript in web
 v0.5.7, add repalced map in check method, fix -e in check 
-v0.5.8, add f_extension for {{}}, f_adjust in patch_text
+v0.5.8, add f_extension for {{}}, f_adjust in patch_text, and align for patch
 """
