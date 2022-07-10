@@ -311,7 +311,7 @@ def extract_textunicode(data, min_len=2) \
                 if i-start >= min_len:
                     print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
                     addrs.append(start)
-                    sizes.append(start-i)
+                    sizes.append(i-start)
                 start = -1
             i += 2
         elif u1 >= 0x20 and u1 <= 0x7f:
@@ -327,7 +327,7 @@ def extract_textunicode(data, min_len=2) \
                     if i-start >= min_len:
                         print("detected text in [{:X}:{:X}] through {:s}".format(start, i, "unicode"))
                         addrs.append(start)
-                        sizes.append(start-i)
+                        sizes.append(i-start)
                     start = -1
                 i += 2
     return addrs, sizes
@@ -367,6 +367,9 @@ def extract_texttbl(data, tbl: List[Tuple[bytes, str]],
 
 def extract_textmultichar(data, encoding, 
     min_len=2) -> Tuple[List[int], List[int]]:
+    """
+    except unicode
+    """
 
     addrs, sizes = [], []
     i = 0
@@ -740,7 +743,7 @@ def extract_ftextobj(binobj: Union[str, bytes],
         addrs, sizes = extract_textmultichar(
             data[start_addr: end_addr], 
             encoding=encoding, min_len=min_len)
-    addrs = map(lambda x: x + start_addr, addrs)
+    addrs = list(map(lambda x: x + start_addr, addrs))
 
     ftexts = []
     for i,(addr, size) in enumerate(zip(addrs, sizes)):
