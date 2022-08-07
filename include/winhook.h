@@ -344,10 +344,10 @@ INLINE void* winhook_searchmemory(void* addr, size_t memsize,
                 j++;
                 continue;
             }
-            char _c1 = (((char*)addr)[i+matchend]>>4);
-            _c1 = _c1 < 10 ? _c1 + 0x30 : _c1 + 0x41;
-            char _c2 = (((char*)addr)[i+matchend]&0xf);
-            _c2 = _c2 < 10 ? _c2 + 0x30 : _c2 + 0x41;
+            char _c1 = (((char*)addr)[i+matchend]>>4) & 0x0f;
+            _c1 = _c1 < 10 ? _c1 + '0' : (_c1 - 10) + 'A';
+            char _c2 = (((char*)addr)[i+matchend]&0xf) & 0x0f;
+            _c2 = _c2 < 10 ? _c2 + '0' : (_c2 - 10) + 'A';
             if (pattern[j] != '?')
             {
                 if (_c1 != pattern[j] && _c1 + 0x20 != pattern[j])
@@ -452,7 +452,7 @@ int winhook_inlinehooks(PVOID pfnTargets[],
     DetourUpdateThread(GetCurrentThread());
     for(int i=0; i<n ;i++)
     {
-        if(!pfnNews[i]) continue;
+        if(!pfnNews[i] || !pfnTargets[i]) continue;
         pfnOlds[i] = pfnTargets[i];
         DetourAttach(&pfnOlds[i], pfnNews[i]);
     }
@@ -469,7 +469,7 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
     DetourUpdateThread(GetCurrentThread());
     for(i=0; i<n ;i++)
     {
-        if(!pfnNews[i]) continue;
+        if(!pfnNews[i] || !pfnTargets[i]) continue;
         DetourDetach(&pfnOlds[i], pfnNews[i]);
     }
     DetourTransactionCommit();
@@ -487,11 +487,11 @@ int winhook_inlinehooks(PVOID pfnTargets[],
     for(i=0; i<n ;i++)
     {
         MH_STATUS status;
-        if(!pfnNews[i]) continue;
+        if(!pfnNews[i] || !pfnTargets[i]) continue;
         status = MH_CreateHook(pfnTargets[i], pfnNews[i], &pfnOlds[i]);
-        if(status!=MH_OK) return i;
+        if(status!= MH_OK) return i;
         status = MH_EnableHook(pfnTargets[i]);
-        if(status!=MH_OK) return i;
+        if(status!= MH_OK) return i;
     }
     return i;
 }
@@ -503,7 +503,7 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
     int i;
     for(i=0; i<n ;i++)
     {
-        if(!pfnTargets[i]) continue;
+        if(!pfnNews[i] || !pfnTargets[i]) continue;
         MH_DisableHook(pfnTargets[i]);
     }
     if(MH_Uninitialize() != MH_OK) return 0;
@@ -523,5 +523,5 @@ v0.2.3 change name to winhook.h and add guard for function name
 v0.2.4 add winhook_searchmemory
 v0.2.5 add minhook backend, compatible withh gcc, tcc
 v0.2.6 support function to patch or search other process memory
-v0.2.7 add win_startexeinject
+v0.2.7 add win_startexeinject, fix winhook_searchmemoryex match bug
 */

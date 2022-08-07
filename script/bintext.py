@@ -22,6 +22,7 @@ def iscjk(c: bytes):
     {"from": ord(u"\u3300"), "to": ord(u"\u33ff")},
     {"from": ord(u"\ufe30"), "to": ord(u"\ufe4f")},
     {"from": ord(u"\uf900"), "to": ord(u"\ufaff")},
+    {"from": ord(u"\uff00"), "to": ord(u"\uffef")}, # full-width punctuation
     {"from": ord(u"\U0002F800"), "to": ord(u"\U0002fa1f")}, 
     {'from': ord(u'\u3040'), 'to': ord(u'\u309f')},# Japanese Hiragana
     {"from": ord(u"\u30a0"), "to": ord(u"\u30ff")},# Japanese Katakana
@@ -304,7 +305,7 @@ def extract_textunicode(data, min_len=2) \
     addrs, sizes = [], []
     i = 0
     start = -1 
-    while i+2 < len(data):
+    while i+1 < len(data):
         u1,  = struct.unpack('<H', data[i:i+2])
         if u1 < 0x20:
             if start != -1:
