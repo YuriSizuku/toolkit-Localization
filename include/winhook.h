@@ -1,6 +1,6 @@
-/*
-windows dyamic hook util functions wrappers
-    v0.2.7, developed by devseed
+/**
+ * windows dyamic hook util functions wrappers
+ *   v0.3, developed by devseed
 */
 
 #ifndef _WINHOOK_H
@@ -41,43 +41,44 @@ windows dyamic hook util functions wrappers
 extern "C" {
 #endif
 // loader functions
-/*
-    start a exe and inject dll into exe
-    return pid
+/**
+ * start a exe and inject dll into exe
+ * return pid
 */
 WINHOOKDEF WINHOOK_EXPORT
 INLINE DWORD winhook_startexeinject(LPCSTR exepath,
     LPSTR cmdstr, LPCSTR dllpath);
 
-/*
-    start a exe by CreateProcess
-    return pid
+/**
+ * start a exe by CreateProcess
+ * @return pid
 */
 #define winhook_startexe(exepath, cmdstr)\
     winhook_startexeinject(exepath, cmdstr, NULL)
 
-/*
-    get the process handle by exename
+
+/**
+ * get the process handle by exename
 */
 WINHOOKDEF WINHOOK_EXPORT 
 INLINE HANDLE winhook_getprocess(LPCWSTR exename);
 
-/*
-    dynamic inject a dll into a process
- */ 
+/**
+ * dynamic inject a dll into a process
+*/ 
 WINHOOKDEF WINHOOK_EXPORT 
 INLINE BOOL winhook_injectdll(HANDLE hprocess, LPCSTR dllname);
 
-/*
-    alloc a console for the program
+/**
+ * alloc a console for the program
 */
 WINHOOKDEF WINHOOK_EXPORT 
 INLINE void winhook_installconsole();
 
 
 // dynamic hook functions
-/*
-    winhook_patchmemory, patch addr by buf with bufsize
+/**
+ * patch addr by buf with bufsize
 */
 WINHOOKDEF WINHOOK_EXPORT
 INLINE BOOL winhook_patchmemoryex(HANDLE hprocess,
@@ -86,8 +87,8 @@ INLINE BOOL winhook_patchmemoryex(HANDLE hprocess,
 #define winhook_patchmemory(addr, buf, bufsize)\
     winhook_patchmemoryex(GetCurrentProcess(), addr, buf, bufsize)
 
-/*
-    winhook_patchmemorys, batch patch memories
+/**
+ * batch patch memories
 */
 WINHOOKDEF WINHOOK_EXPORT
 INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
@@ -97,9 +98,21 @@ INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
 #define winhook_patchmemorys(addrs, bufs, bufsizes, n)\
     winhook_patchmemorysex(GetCurrentProcess(), addrs, bufs, bufsizes, n)
 
-/*
-    winhook_searchpattern, search the pattern like "ab 12 ?? 34"
-    return the matched address, matchend
+/**
+ * patch memory with pattern, 
+ * @param pattern
+ *   skip '#' line, + for reative address, then multi byte code (hex) 
+ *   00400000: ff 90
+ *   +3f00: 90 90 90 90
+ *   +3f06: 90; +3f08: 90
+ * @return patch bytes number, error < 0
+*/
+WINHOOKDEF WINHOOK_EXPORT
+INLINE int winhook_patchmemorypattern(const char *pattern);
+
+/**
+ * search the pattern like "ab 12 ?? 34"
+ * @return the matched address
 */
 WINHOOKDEF WINHOOK_EXPORT
 INLINE void* winhook_searchmemory(void* addr, size_t memsize,
@@ -110,9 +123,9 @@ INLINE void* winhook_searchmemoryex(HANDLE hprocess,
     void* addr, size_t memsize,
     const char* pattern, size_t* pmatchsize);
 
-/* 
-    winhook_iathookmodule is for windows dll, 
-    moduleDllName is which dll to hook iat
+/**
+ * winhook_iathookmodule is for windows dll, 
+ * @param moduleDllName is which dll to hook iat
 */
 WINHOOKDEF WINHOOK_EXPORT
 INLINE BOOL winhook_iathookpe(LPCSTR targetDllName,
@@ -121,20 +134,18 @@ INLINE BOOL winhook_iathookpe(LPCSTR targetDllName,
 #define winhook_iathookmodule(targetDllName, moduleDllName, pfnOrg, pfnNew)\
     winhook_iathookpe(targetDllName, GetModuleHandle(moduleDllName), pfnOrg, pfnNew)
 
-/*
-    iat dynamiclly hook, 
-    replace the pfgNew with pfnOrg function 
-    in targetDllName, 
-    winhook_iathook is for windows EXE, 
-    targetDllName is like "user32.dll", "kernel32.dll"
+/**
+ * iat dynamiclly hook, 
+ * replace the @param pfgNew with @param pfnOrg function 
+ * @param targetDllName like "user32.dll", "kernel32.dll"
 */
 #define winhook_iathook(targetDllName, pfnOrg, pfgNew)\
     winhook_iathookmodule(targetDllName, NULL, pfnOrg, pfgNew)
 
-/*
-    inline hooks wrapper, 
-    pfnTargets -> pfnNews, save origin pointers in pfnOlds
-    return: success hook numbers
+/**
+ * inline hooks wrapper, 
+ * @param pfnTargets -> @param pfnNews, save origin pointers in @param pfnOlds
+ * @return: success hook numbers
 */
 WINHOOKDEF WINHOOK_EXPORT
 int winhook_inlinehooks(PVOID pfnTargets[],
@@ -258,7 +269,7 @@ INLINE HANDLE winhook_getprocess(LPCWSTR exename)
     }
     CloseHandle(snapshot);
     if (pid != 0) return OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-    return NULL;     // Not found
+    return NULL; // Not found
 }
 
 WINHOOKDEF WINHOOK_EXPORT
@@ -324,6 +335,87 @@ INLINE BOOL winhook_patchmemorysex(HANDLE hprocess,
             addrs[i], bufs[i], bufsizes[i]);
     }
     return ret;
+}
+
+INLINE int winhook_patchmemorypattern(const char *pattern)
+{
+    if (!pattern) return -1;
+    size_t imageBase = (size_t)GetModuleHandleA(NULL);
+    int res = 0;
+    int flag_rel = 0;
+    DWORD oldprotect;
+    
+    for(int i=0; pattern[i];i++)
+    {   
+        if(pattern[i]=='#')
+        {
+            while(pattern[i]!='\n') i++;
+            continue;
+        }
+        else if (pattern[i] == '\n' || pattern[i] == '\r')
+        {
+            continue;
+        }
+        else if (pattern[i]=='+')
+        {
+            flag_rel = 1;
+            i++;
+        }
+        while (pattern[i]==' ') i++;
+
+        size_t addr = 0;
+        int flag_nextline = 0;
+        for (;pattern[i]!=':'; i++)
+        {
+            char c = pattern[i];
+            if(c>='0' && c<='9') c -= '0';
+            else if (c>='A' && c<='Z') c = c -'A' + 10;
+            else if (c>='a' && c<='z') c = c -'a' - 10;
+            else if (c=='\r' || c=='\n') {flag_nextline=1;break;}
+            else if (c==' ') continue;
+            else return -2;
+            addr = (addr<<4) + c;
+        }
+        if(flag_nextline) continue;
+        if(flag_rel) addr += imageBase;
+        
+        int n = 0;
+        int v = 0;
+        int start = i++;
+        for(int j=0;j<2;j++)
+        {
+            n = 0;
+            for(;pattern[i]!='\n';i++)
+            {
+                char c = pattern[i];
+                if(c>='0' && c<='9') c -= '0';
+                else if (c>='A' && c<='Z') c = c - 'A' + 10;
+                else if (c>='a' && c<='z') c = c - 'a' + 10;
+                else if (c==';') break;
+                else continue;
+                n++;
+                if (j != 0)
+                {
+                    v = (v << 4) + c;
+                    if (!(n & 1))
+                    {
+                        *(uint8_t*)(addr + (n>>1) -1) = v;
+                        v = 0;
+                        res++;
+                    }
+                }
+            }
+            if(n&1) return -3;
+            if (j == 0) 
+            {
+                i = start;
+                VirtualProtect((void*)addr, n>>1, PAGE_EXECUTE_READWRITE, &oldprotect);
+            }
+            else VirtualProtect((void*)addr, n>>1, oldprotect, &oldprotect);
+        }
+        flag_rel = 0;
+    }
+    return res;
 }
 
 INLINE void* winhook_searchmemory(void* addr, size_t memsize,
@@ -514,14 +606,15 @@ int winhook_inlineunhooks(PVOID pfnTargets[],
 
 #endif
 
-/*
-history:
-v0.1 initial version
-v0.2 add make this to single file
-v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
-v0.2.3 change name to winhook.h and add guard for function name
-v0.2.4 add winhook_searchmemory
-v0.2.5 add minhook backend, compatible withh gcc, tcc
-v0.2.6 support function to patch or search other process memory
-v0.2.7 add win_startexeinject, fix winhook_searchmemoryex match bug
+/**
+ * history:
+ * v0.1 initial version
+ * v0.2 add make this to single file
+ * v0.2.2 add WINHOOK_STATIC, WINHOOK_SHARED macro
+ * v0.2.3 change name to winhook.h and add guard for function name
+ * v0.2.4 add winhook_searchmemory
+ * v0.2.5 add minhook backend, compatible withh gcc, tcc
+ * v0.2.6 support function to patch or search other process memory
+ * v0.2.7 add win_startexeinject, fix winhook_searchmemoryex match bug
+ * v0.3 use javadoc style, add winhook_patchmemorypattern
 */

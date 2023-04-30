@@ -1,6 +1,6 @@
 # ReverseUtil  
 
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/yurisizuku/reverseutil?color=green&label=ReverseUtil)![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yurisizuku/reverseutil/build_tools)  
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/yurisizuku/reverseutil?color=green&label=ReverseUtil)![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/ReverseUtil/build_wintools.yml?label=build_wintools)  
 There are my tools for reversing.  
 The building example is in `./sln`,  
 as well as `Makefile` for `tcc`, `gcc` and `clang`.  
@@ -22,7 +22,7 @@ as well as `Makefile` for `tcc`, `gcc` and `clang`.
 * `win_injectdll.py` , pre inject  `dll` to a `exe`  
 * `win_console.js`,  Allocate a console for game  
 * `win_file.js` , view information for both `CreateFile`, `ReadFile`, `WriteFile`, `fopen`,`fread`, `fwrite`  
-* `win_redirect.js`, redirect font, codepage, and paths in games   
+* `win_redirect.js`, redirect font, codepage, and paths in games  
 * `winhook.h`,  single file for dynamic hook functions, such as IAT hook, inline hook  
 * `winpe.h`, single file for parsing windows PE structure, adjust RELOC, ADDRS, or IAT  
 
