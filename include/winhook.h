@@ -343,13 +343,16 @@ INLINE int winhook_patchmemorypattern(const char *pattern)
     size_t imageBase = (size_t)GetModuleHandleA(NULL);
     int res = 0;
     int flag_rel = 0;
+    int j = 0;
+    while (pattern[j]) j++;
+    int patternlen = j;
     DWORD oldprotect;
     
-    for(int i=0; pattern[i];i++)
+    for(int i=0; i<patternlen;i++)
     {   
         if(pattern[i]=='#')
         {
-            while(pattern[i]!='\n') i++;
+            while(pattern[i]!='\n' && i<patternlen) i++;
             continue;
         }
         else if (pattern[i] == '\n' || pattern[i] == '\r')
@@ -365,7 +368,7 @@ INLINE int winhook_patchmemorypattern(const char *pattern)
 
         size_t addr = 0;
         int flag_nextline = 0;
-        for (;pattern[i]!=':'; i++)
+        for (;pattern[i]!=':' && i<patternlen; i++)
         {
             char c = pattern[i];
             if(c>='0' && c<='9') c -= '0';
@@ -385,7 +388,7 @@ INLINE int winhook_patchmemorypattern(const char *pattern)
         for(int j=0;j<2;j++)
         {
             n = 0;
-            for(;pattern[i]!='\n';i++)
+            for(;pattern[i]!='\n' && i<patternlen;i++)
             {
                 char c = pattern[i];
                 if(c>='0' && c<='9') c -= '0';
