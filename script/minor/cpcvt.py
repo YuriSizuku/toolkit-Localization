@@ -1,6 +1,6 @@
 """
 A tool to change some texts codepage in files,
-    v0.1, developed by devseed
+    v0.1.1, developed by devseed
 """
 
 import codecs
@@ -15,6 +15,7 @@ def datacpcvt(data: bytearray, texts: list,
     search decode(fromcp) -> encode(tocp)
     search decode(middlecp) -> encode(fromcp).decode(tocp) -> encode(middlecp)
     """        
+
     if copydata: data = deepcopy(data)
     texts.sort(key=lambda s: len(s), reverse=True)
     for i, text in enumerate(texts):
@@ -60,8 +61,8 @@ def datacpcvt(data: bytearray, texts: list,
     return data
 
 def filecpcvt(inpath, fromcp, tocp, outpath="out"):
-    fp = codecs.open(inpath, 'r', encoding=fromcp)
-    fp2 = codecs.open(outpath, 'w', encoding=tocp)
+    fp = codecs.open(inpath, 'r', encoding=fromcp, errors='ignore')
+    fp2 = codecs.open(outpath, 'w', encoding=tocp, errors='ignore')
     lines = fp.readlines()
     fp2.writelines(lines)
     fp.close()
@@ -107,3 +108,8 @@ if __name__ == "__main__":
     # debug()
     main()
     pass
+
+"""
+history
+v0.1.1, use error ignore for filecpcvt
+"""
