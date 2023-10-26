@@ -31,6 +31,65 @@ void test_patchpattern()
 	assert(v2 == 0x09cdab12);
 }
 
+void test_patch1337() 
+{
+	printf("\n## test_patch1337\n");
+	char pattern[256] = {0};
+	char tmp[256];
+	uint8_t v1 = 1;
+	uint32_t v2 = 2;
+	int res = 0;
+	size_t base = 0;
+
+	printf("v1(%p)=%x v2(%p)=%x imagebase=%p\n", &v1, v1, &v2, v2, 
+		(void*)winhook_getimagebase(GetCurrentProcess()));
+	strcpy(pattern, ">test.exe\n");
+	res = sprintf(tmp, "%p:%02X->ff\r\n", (void*)((size_t)&v1 - base),(uint8_t)v1);
+	strcat(pattern, tmp);
+	res = sprintf(tmp, "%p:%02x->12;", (void*)((size_t)&v2 - base), (uint8_t)(v2 & 0xff));
+	strcat(pattern, tmp);
+	res = sprintf(tmp, "%p:%02X->ab\n", (void*)((size_t)&v2 - base + 1), (uint8_t)(v2 >> 8) & 0xff);
+	strcat(pattern, tmp);
+	res = sprintf(tmp, "%p:%02X->CD\r", (void*)((size_t)&v2 - base + 2), (uint8_t)(v2 >> 16) & 0xff);
+	strcat(pattern, tmp);
+	res = sprintf(tmp, "%p:%02X->09\n", (void*)((size_t)&v2 - base + 3), (uint8_t)(v2 >> 24) & 0xff);
+	strcat(pattern, tmp);
+	puts(pattern);
+	res = winhook_patchmemory1337(pattern, 0, FALSE);
+	printf("v1(%p)=%x v2(%p)=%x\n", &v1, v1, &v2, v2);
+	assert(res == 5);
+	assert(v1 == 0xff);
+	assert(v2 == 0x09cdab12);
+}
+
+void test_patchips() 
+{
+	printf("\n## test_patchips\n");
+	char pattern[256];
+	uint8_t v1 = 1;
+	uint32_t v2 = 2;
+	int res = 0;
+	size_t base = (size_t)&v1;
+
+	printf("v1(%p)=%x v2(%p)=%x\n", &v1, v1, &v2, v2);
+	strncpy(pattern, "PATCH", 5);
+	uint8_t* p = pattern + 5;
+	*p++ = 0; *p++ = 0; *p++ = 0; // offset1
+	*p++ = 0; *p++ = 1;// size1
+	*p++ = 0xff; // patch1
+	size_t offset = (size_t)&v2 - (size_t)&v1;
+	*p++ = (offset >> 16) & 0xff; *p++ = (offset >> 8) & 0xff;  *p++ = offset&0xff;   // offset2
+	*p++ = 0; *p++ = 4; // size2
+	*p++ = 0x12; *p++ = 0xab; *p++ = 0xcd; *p++ = 0x09; // patch2
+	strncpy(p, "EOF", 3);
+	puts(pattern);
+	res = winhook_patchmemoryips(pattern, base);
+	printf("v1(%p)=%x v2(%p)=%x\n", &v1, v1, &v2, v2);
+	assert(res == 5);
+	assert(v1 == 0xff);
+	assert(v2 == 0x09cdab12);
+}
+
 void test_searchpattern()
 {
 	printf("\n## test_searchpattern\n");
@@ -72,6 +131,8 @@ void test_windyn()
 int main(int argc, char *argv[])
 {
 	test_patchpattern();
+	test_patch1337();
+	test_patchips();
 	test_searchpattern();
 	test_searchpattern2();
 	test_startexeinject();
