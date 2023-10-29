@@ -1,1 +1,0 @@
-pyinstaller -F "%~dp0\..\..\script\bintext.py" --name "bintext.exe" --distpath="%~dp0\bin" --workpath="%~dp0\bin\obj" --specpath="%~dp0\bin\obj" --icon="%~dp0\..\..\asset\default.ico" --exclude-module=numpy --exclude-module=PIL --console --clean -y
