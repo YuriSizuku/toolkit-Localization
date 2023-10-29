@@ -1,2 +1,0 @@
-:: build single files
-nuitka --standalone --onefile --full-compat --show-progress "%~dp0\..\..\script\bintext.py" --windows-icon-from-ico="%~dp0\..\..\asset\default.ico" --output-dir="%~dp0\bin" -o "%~dp0\bin\cbintext.exe" --assume-yes-for-downloads
