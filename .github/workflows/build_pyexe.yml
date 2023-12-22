@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-2019 # default batch, powershell
     strategy:
       matrix:
-        pyexe_name: [bintext, ftext]
+        pyexe_name: [bintext, ftextcvt]
     steps:
     - name: pull and init
       uses: actions/checkout@v3
