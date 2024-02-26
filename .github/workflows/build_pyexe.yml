@@ -20,7 +20,7 @@ jobs:
     - name: set python version
       uses: actions/setup-python@v3
       with: 
-        python-version: '3.7'
+        python-version: '3.8'
         architecture: 'x86' 
     
     - name: make python enviroment

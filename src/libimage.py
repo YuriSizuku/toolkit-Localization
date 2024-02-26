@@ -1,6 +1,6 @@
 """
 something about texture and picture convert
-    v0.2.1, develope by seed
+    v0.2.1, develope by devseed
 """
 
 import math
