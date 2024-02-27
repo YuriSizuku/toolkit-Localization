@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 g_description = """
 A binary text tool (remake) for text exporting, importing and checking
     v0.6, developed by devseed
@@ -11,19 +11,11 @@ from io import StringIO, BytesIO
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
-    from libutil import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, dump_ftext, load_ftext, load_tbl
+    from libutil import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, dump_ftext, load_ftext, load_tbl")
+    exec("from libutil_v600 import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
 
 __version__  = 600
-
-loglevel_map = {"none": logging.NOTSET, 
-                "critical": logging.CRITICAL, 
-                "error": logging.ERROR,
-                "warnning": logging.WARNING,  
-                "info": logging.INFO, 
-                "debug": logging.DEBUG}
-loglevel_rmap = dict([(v, k) for k, v in loglevel_map.items()])
 
 # text basic functions
 def iscjk(c: str): 
@@ -146,7 +138,7 @@ def split_extend(text, text_noeval=False) -> List[Union[slice, bytes]]:
             start = end + 2
             end = text.find('}}', start)
             if end < 0: raise ValueError(f"[split_extend] pattern not closed, text='{text}'")
-            res.append(eval(text[start:end]))
+            res.append(eval(text[start:end], {'__builtins__': None}))
             start = end + 2
     res.append(slice(start, None))
     return res
@@ -298,7 +290,7 @@ def detect_text_utf8 (data, min_len=3) -> Tuple[List[int], List[int]]:
 @loadfiles(0)
 def extract_ftexts(binobj: Union[str, bytes], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
-        min_len=2, has_cjk=True, data_slice=None):
+        min_len=2, has_cjk=True, data_slice=None) -> List[ftext_t]:
     """
     extract ftexts by search encoding or tbl in binfile
     """
@@ -335,7 +327,9 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
     addrs, sizes = _detect_text(data[data_slice])
     addrs = list(map(lambda x: x + data_slice.start, addrs))
     ftexts = _make_ftexts(addrs, sizes)
-    return dump_ftext(ftexts, ftexts, outpath)
+    if outpath: save_ftext(ftexts, ftexts, outpath)
+    logging.info(f"finished, extract {len(ftexts)} ftexts")
+    return ftexts
 
 @loadfiles([0, 1, "referobj"])
 def insert_ftexts(binobj: Union[str, bytes], 
@@ -346,7 +340,7 @@ def insert_ftexts(binobj: Union[str, bytes],
         insert_longer=False, insert_shorter=False, insert_align=1, 
         referobj: Union[str, bytes]=None, jump_table: List[jtable_t] = None,
         f_before: Callable[[bytes, ftext_t], str] = None, 
-        f_after: Callable[[bytes, ftext_t, bytes], bytes] = None, 
+        f_after: Callable[[bytes, memoryview, bytes, ftext_t], bytes] = None, 
     ) -> bytes:
     """
     :param ftextobj: ftextpath or (ftexts1, ftexts2)
@@ -354,8 +348,8 @@ def insert_ftexts(binobj: Union[str, bytes],
     :param bytes_padding: padding the replace_bytes if not data_shorter
     :param bytes_fallback: bytes when encoding tbl failed
     :paran referobj: search from the reference obj to get new addr
-    :param f_before: f(data, ftext_t) -> replace_text
-    :param f_after: f(data, ftext_t, before_bytes) -> replace_bytes
+    :param f_before: f(srcdata, ftext_t) -> replace_text
+    :param f_after: f(srcdata, dstdata, encbytes, ftext_t) -> replace_bytes
     """
     
     def addr_find(t:ftext_t, data: bytes, refdata: bytes, addr_cache: set=None) -> int:
@@ -372,14 +366,14 @@ def insert_ftexts(binobj: Union[str, bytes],
             if addr >= 0:
                 if addr_cache:
                     if addr in addr_cache:
-                        logging.debug(f"{t.addr: x} is in cache")
+                        # logging.debug(f"{t.addr: x} is in cache")
                         addr += 1
                         continue
                     else: flag_find = True
                 else: flag_find = True
                 
                 if flag_find:
-                    logging.debug(f"0x{t.addr:x}->0x{addr:x}")
+                    # logging.debug(f"0x{t.addr:x}->0x{addr:x}")
                     addr_cache |= {addr}
                     return addr
             else: 
@@ -429,7 +423,11 @@ def insert_ftexts(binobj: Union[str, bytes],
         encbytes = encode_extend(text, enc, enc_error, text_noeval)
         encbytes = insert_adjust(encbytes, t, insert_longer=insert_longer, 
             insert_shorter=insert_shorter, insert_align=insert_align, bytes_padding=bytes_padding)
-        encbytes = f_after(srcdata, t, encbytes) if f_after else encbytes
+        if f_after: 
+            dstdata = dstio.getbuffer()[:dstio.tell()]
+            encbytes = f_after(srcdata, dstdata, encbytes, t)
+            dstio.flush()
+            del dstdata
         dstio.write(encbytes)
         last_addr = addr + t.size
         shift += len(encbytes) - t.size
@@ -511,13 +509,13 @@ def check_ftexts(ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], out
 
     if outpath:
         with codecs.open(outpath, "w", "utf-8") as fp:
-            fp.writelines(f"{loglevel_rmap[t.type].upper()}:{t.id: x}: {t.msg}\n" for t in msgs)
+            fp.writelines(f"{logging.getLevelName(t.type)}:{t.id: x}: {t.msg}\n" for t in msgs)
 
     return msgs
 
 def cli(cmdstr=None):
     def cmd_extract(args):
-        logging.info(repr(args))
+        logging.debug(repr(args))
         outpath = args.outpath if args.outpath!="" else None
         start = int(args.skip, 0) if args.skip else 0 
         end =  start + int(args.size, 0) if args.size else None
@@ -527,12 +525,11 @@ def cli(cmdstr=None):
             data_slice=slice(start, end, 1))
 
     def cmd_insert(args):
-        logging.info(repr(args))
+        logging.debug(repr(args))
         outpath = args.outpath if args.outpath!="" else None
+        text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_padding = bytes.fromhex(args.bytes_padding)
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
-        text_replace = dict()
-        for t in args.text_replace: text_replace[t[0]] = t[1]
         insert_ftexts(args.binpath, args.ftextpath, outpath, 
             encoding=args.encoding, tblobj=args.tbl, referobj=args.referpath, 
             text_noeval=args.text_noeval, text_replace=text_replace, 
@@ -541,12 +538,13 @@ def cli(cmdstr=None):
             insert_align=args.insert_align)
 
     def cmd_check(args):
-        logging.info(repr(args))
+        logging.debug(repr(args))
         outpath = args.outpath if args.outpath!="" else None
+        text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
         check_ftexts(args.ftextpath, outpath,  
             encoding=args.encoding, tblobj=args.tbl, referobj=args.referpath, 
-            text_noeval=args.text_noeval, text_replace=args.text_replace, 
+            text_replace=text_replace, text_noeval=args.text_noeval,
             bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
 
     parser = argparse.ArgumentParser(description=g_description)
@@ -572,26 +570,26 @@ def cli(cmdstr=None):
     parser_i.add_argument("ftextpath")
     parser_i.add_argument("--refer", dest="referpath", help="use this referfile for calcuate addr")
     parser_i.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
-    parser_i.add_argument("--text_replace", type=str, default=None, metavar=('src', 'dst'), 
-                            nargs=2, action='append', help="replace bytes after encoding ")
+    parser_i.add_argument("--text_replace", type=str, default=None, 
+        metavar=('src', 'dst'), nargs=2, action='append', help="replace bytes after encoding ")
     parser_i.add_argument("--bytes_padding", type=str, default="00",  help="padding bytes (fromhex format)")
-    parser_i.add_argument("--bytes_fallback", type=str, default=None, help="fallback bytes after tbl encoding failed ")
+    parser_i.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
     parser_i.add_argument("--insert_shorter", action="store_true", help="insert data can longer than origin")
     parser_i.add_argument("--insert_longer", action="store_true",  help="insert data can shorter than origin")
     parser_i.add_argument("--insert_align", default=1, help="insert data by align value")
-
     parser_c.set_defaults(handler=cmd_check)
     parser_c.add_argument("ftextpath")
     parser_c.add_argument("--refer", dest="referpath", help="binfile path")
     parser_c.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
-    parser_c.add_argument("--text_replace", type=str, default=None, metavar=('src', 'dst'), 
-                            nargs=2, action='append', help="replace bytes after encoding ")
-    parser_c.add_argument("--bytes_fallback", type=str, default=None, help="fallback bytes after tbl encoding failed ")
-    parser_c.add_argument("--insert_longer", action="store_true",  help="insert data can shorter than origin")
+    parser_c.add_argument("-r", "--text_replace", type=str, default=None, 
+        metavar=('src', 'dst'), nargs=2, action='append', help="replace bytes after encoding ")
+    parser_c.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
+    parser_c.add_argument("--insert_longer", action="store_true", help="insert data can shorter than origin")
 
     args = parser.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
-    logging.basicConfig(level=loglevel_map[loglevel], format="%(levelname)s:%(funcName)s: %(message)s")
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+                        format="%(levelname)s:%(funcName)s: %(message)s")
     if hasattr(args, "handler"): args.handler(args)
     else: parser.print_help()
 

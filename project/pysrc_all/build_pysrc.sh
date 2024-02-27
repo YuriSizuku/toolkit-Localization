@@ -1,4 +1,4 @@
-build_version()
+build_pysrc()
 {
     src_dir=$1
     dst_dir=$2
@@ -10,10 +10,10 @@ build_version()
 
 if ! [ -d build ]; then mkdir build; fi
 
-build_version ../../src ./build libutil
-build_version ../../src ./build libtext
-# build_version ../../src ./build libimage
-# build_version ../../src ./build libalg
-# build_version ../../src ./build ftextcvt
-# build_version ../../src ./build ftextpack
-# build_version ../../src ./build cpcvt
+build_pysrc ../../src ./build libutil
+build_pysrc ../../src ./build libtext
+# build_pysrc ../../src ./build libfont
+# build_pysrc ../../src ./build libimage
+# build_pysrc ../../src ./build libalg
+# build_pysrc ../../src ./build ftextcvt
+build_pysrc ../../src ./build ftextpack

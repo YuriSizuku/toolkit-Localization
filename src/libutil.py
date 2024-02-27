@@ -14,25 +14,26 @@ from typing import Union, List, Tuple
 __version__  = 600
 
 # util functions
-def readlines(data: bytes, encoding='utf-8', enc_error='ignore') -> List[str]:
+def readlines(data: bytes, encoding='utf-8', encoding_error='ignore') -> List[str]:
     i = 0
     start = 0
     lines = []
     while i < len(data): 
         if data[i] == ord('\r'):
             if i+1 < len(data) and data[i+1] == '\n': i += 1
-            lines.append(str(data[start: i+1], encoding, enc_error))
+            lines.append(str(data[start: i+1], encoding, encoding_error))
             start = i+1
         elif data[i] == ord('\n'):
-            lines.append(str(data[start: i+1], encoding, enc_error))
+            lines.append(str(data[start: i+1], encoding, encoding_error))
             start = i+1
         i += 1
+    if start < len(data): lines.append(str(data[start:], encoding, encoding_error))
     return lines
 
-def writelines(lines: List[str], encoding='utf-8', enc_error='ignore') -> bytes:
+def writelines(lines: List[str], encoding='utf-8', encoding_error='ignore') -> bytes:
     bufio = BytesIO()
     for line in lines:
-        bufio.write(line.encode(encoding, enc_error))
+        bufio.write(line.encode(encoding, encoding_error))
     return bufio.getbuffer()
 
 def loadfiles(indexs=None):
@@ -98,7 +99,7 @@ class msg_t:
     type: int = 0
 
 # serilization functions
-def dump_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], outpath: str = None, *,  
+def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], outpath: str = None, *,  
                 encoding="utf-8", width_index = (5, 6, 3)) -> List[str]:
     """
     format text, such as ●num|addr|size● text
@@ -146,7 +147,8 @@ def load_ftext(inobj: Union[str, List[str]], *,
         if indicator == "#": continue
         if indicator not in {"○", "●"}: continue
         line  = line.rstrip('\n').rstrip('\r')
-        _, t1, t2 = line.split(indicator)
+        _, t1, *t2 = line.split(indicator)
+        t2 = "".join(t2)
         ftext = ftext_t(text=t2[1:])
         try: 
             _, t12, t13 = t1.split('|')
@@ -157,7 +159,7 @@ def load_ftext(inobj: Union[str, List[str]], *,
 
     return ftexts1, ftexts2
 
-def dump_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
+def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
     lines = []
     for t in tbl:
         raw_str = ""

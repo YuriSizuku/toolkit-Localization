@@ -1,62 +1,35 @@
-import os
-import sys
 import codecs
 import logging
 import unittest
 from copy import deepcopy
 
-sys.path.append(os.path.join(os.path.dirname(__file__), r"src"))
-sys.path.append(os.path.join(os.path.dirname(__file__), r"../src"))
+from common import *
 import libtext as bintext
-import libutil as util
 
-paths_bin = {'COM001': "test/sample/COM001"}
-paths_tbl = {'COM001': "test/sample/COM001.tbl"}
-paths_ftext = {'COM001': "test/sample/COM001.txt"} 
-
-def assert_lines(self, lines1, lines2, ignore_len=2):
-    lines1 = list(filter(lambda x: len(x) > ignore_len, lines1))
-    lines2 = list(filter(lambda x: len(x) > ignore_len, lines2))
-    self.assertEqual(len(lines1), len(lines2))
-    for l1, l2 in zip(lines1, lines2):
-        self.assertEqual(l1.rstrip('\r').rstrip('\n'), l2.rstrip('\r').rstrip('\n'))
-
-class TestTbl(unittest.TestCase):
-    def test_com001(self):
-        # test different ways to load tbl
-        with codecs.open(paths_tbl["COM001"], 'r', 'utf-8') as fp: 
-            lines1 = fp.readlines()
-        tbl = util.load_tbl(lines1)
-        lines2 = util.dump_tbl(tbl)
-        assert_lines(self, lines1, lines2)
-
-        # test encode_tbl, decode_tbl
-        text1 = "湧き出る温泉と豊かな自然に包まれた風光明媚な地で, 你"
-        data = bintext.encode_tbl(text1, tbl, "#".encode())
-        data2 = bintext.encode_tbl(text1, tbl, "#".encode())
-        addrs, sizes = bintext.detect_text_tbl(data2, tbl)
+class TestConvert(unittest.TestCase):
+    def test_sentense(self):
+        tbl = bintext.load_tbl(paths_tbl["COM001"])
+        text = "湧き出る温泉と豊かな自然に包まれた風光明媚な地で, 你"
+        data = bintext.encode_tbl(text, tbl, "#".encode())
+        data2 = bintext.encode_tbl(text, tbl, "#".encode())
+        self.assertEqual(data, data2) # test encode cache
+        addrs, sizes = bintext.detect_text_sjis(data2)
         self.assertEqual(len(addrs), len(sizes))
         self.assertEqual(addrs[0] + sizes[0], len(data2))
-        self.assertEqual(data, data2) # test encode cache
-        text2 = bintext.decode_tbl(data, tbl)
-        self.assertEqual(text1.replace("你", "#"), text2)
 
-class TestFtext(unittest.TestCase):
-    def test_com001(self):
-        # test load and dump ftext
-        with codecs.open(paths_ftext["COM001"], 'r', 'utf-8') as fp: 
-            lines1 = fp.readlines()
-        ftexs1, ftexs2 = util.load_ftext(lines1)
-        self.assertEqual(len(ftexs1), len(ftexs2))
-        lines2 = util.dump_ftext(ftexs1, ftexs2)
-        assert_lines(self, lines1, lines2)
+        text2 = bintext.decode_tbl(data, tbl)
+        self.assertEqual(text.replace("你", "#"), text2)
 
 class TestExtract(unittest.TestCase):
     def test_com001(self):
         # test extract_ftexts by sjis and tbl
-        lines_sjis = bintext.extract_ftexts(paths_bin["COM001"], encoding='sjis')
-        lines_tbl = bintext.extract_ftexts(paths_bin["COM001"], tblobj=paths_tbl["COM001"])
-        assert_lines(self, lines_sjis, lines_tbl)
+        ftexts_sjis = bintext.extract_ftexts(paths_bin["COM001"], encoding='sjis')
+        ftexts_tbl = bintext.extract_ftexts(paths_bin["COM001"], tblobj=paths_tbl["COM001"])
+        self.assertEqual(len(ftexts_sjis), len(ftexts_tbl))
+        for i, (t1, t2) in enumerate(zip(ftexts_sjis, ftexts_tbl)):
+            self.assertEqual(t1.addr, t2.addr)
+            self.assertEqual(t1.size, t2.size)
+            self.assertEqual(t1.text, t2.text)
 
     def test_sentense(self):
         dummys = [b'\x01\xff\x03', b'\x15', b'\xff\xff']
@@ -66,12 +39,9 @@ class TestExtract(unittest.TestCase):
         data_utf8 = b''.join([dummys[i] + text.encode('utf8') for i in range(len(dummys))])
         data_sjis = b''.join([dummys[i] + text.encode('sjis') for i in range(len(dummys))])
         data_gbk = b''.join([dummys[i] + text.encode('gbk') for i in range(len(dummys))])
-        lines_utf8 = bintext.extract_ftexts(data_utf8, encoding='utf-8')
-        lines_sjis = bintext.extract_ftexts(data_sjis, encoding='sjis')
-        lines_gbk =  bintext.extract_ftexts(data_gbk, encoding='gbk')
-        ftexts_utf8, _ = bintext.load_ftext(lines_utf8)
-        ftexts_sjis, _ = bintext.load_ftext(lines_sjis)
-        ftexts_gbk, _ = bintext.load_ftext(lines_gbk)
+        ftexts_utf8 = bintext.extract_ftexts(data_utf8, encoding='utf-8')
+        ftexts_sjis = bintext.extract_ftexts(data_sjis, encoding='sjis')
+        ftexts_gbk =  bintext.extract_ftexts(data_gbk, encoding='gbk')
 
         self.assertEqual(len(ftexts_utf8), len(dummys))
         for t in ftexts_utf8: self.assertEqual(t.text, text)

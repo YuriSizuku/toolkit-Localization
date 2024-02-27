@@ -16,7 +16,6 @@ See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for spe
 * `libalg.py`, some matching and statistic method for text  
 * `ftextcvt.py`, convert the `ftext` format made by `bintext.py`  
 * `ftextpack.py`, method for packing `ftext` in a bin file with lower memory  
-* `cpcvt.py`, convert some strings encoding in file  
 
 ### windows platform libraries
 
@@ -39,7 +38,7 @@ python src/libtext.py check project/pyexe_bintext/build/COM001_rebuild.txt --ref
 ### ftextpack
 
 ```shell
-python src/ftextpack.py
+python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.fp01 -t test/sample/COM001.tbl --pack_compact
 ```
 
 ## File Formats
@@ -123,6 +122,14 @@ v0.5.8, add f_extension for {{}}, f_adjust in patch_text, and align for patch
 v0.6, remake to increase speed and simplify functions
 ```
 
+* `futil.py` -> `libfont.py`
 * `texture.py` -> `libtexture.py` -> `libimage.py`
 * `text.py` -> `librawtext.py` -> `libscenario.py` -> `libalg.py`  
-* `futil.py` -> `libfont.py`
+
+* `ftextpack.py`
+
+```shell
+v0.1, initial version with data.fp01
+v0.1.1, add allow_compat for smaller memory use
+v0.2, remake according to libtext v0.6
+```
