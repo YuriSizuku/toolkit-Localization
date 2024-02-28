@@ -1,0 +1,3 @@
+zstandard
+nuitka
+python-docx

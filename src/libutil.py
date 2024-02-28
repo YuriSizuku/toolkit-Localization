@@ -1,13 +1,14 @@
+# -*- coding: utf-8 -*-
 """
 util functions and structures for galgame localization
-  v0.6, developed by devseed
+    v0.6, developed by devseed
 """
 
 import os
 import gzip
-import codecs
 import zipfile
 from io import BytesIO
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Union, List, Tuple
 
@@ -18,28 +19,28 @@ def readlines(data: bytes, encoding='utf-8', encoding_error='ignore') -> List[st
     i = 0
     start = 0
     lines = []
-    while i < len(data): 
-        if data[i] == ord('\r'):
-            if i+1 < len(data) and data[i+1] == '\n': i += 1
-            lines.append(str(data[start: i+1], encoding, encoding_error))
+    mem = memoryview(data)
+    while i < len(mem): 
+        if mem[i] == ord('\r'):
+            if i+1 < len(mem) and mem[i+1] == '\n': i += 1
+            lines.append(str(mem[start: i+1], encoding, encoding_error))
             start = i+1
-        elif data[i] == ord('\n'):
-            lines.append(str(data[start: i+1], encoding, encoding_error))
+        elif mem[i] == ord('\n'):
+            lines.append(str(mem[start: i+1], encoding, encoding_error))
             start = i+1
         i += 1
-    if start < len(data): lines.append(str(data[start:], encoding, encoding_error))
+    if start < len(mem): lines.append(str(mem[start:], encoding, encoding_error))
     return lines
-
+   
 def writelines(lines: List[str], encoding='utf-8', encoding_error='ignore') -> bytes:
     bufio = BytesIO()
-    for line in lines:
+    for line in lines: 
         bufio.write(line.encode(encoding, encoding_error))
-    return bufio.getbuffer()
+    data = bufio.getvalue()
+    bufio.close()
+    return data
 
-def loadfiles(indexs=None):
-    if indexs == None: indexs = [0]
-    if type(indexs) == int:  indexs = [indexs]
-
+def loadbytes(path) -> bytes:
     def load_gz(path) -> bytes: # path/x.gz 
         with gzip.GzipFile(path, 'rb') as fp: 
             return fp.read()
@@ -54,22 +55,56 @@ def loadfiles(indexs=None):
     def load_direct(path) -> bytes:
         with open(path, 'rb') as fp:
             return fp.read()
+    
+    if os.path.splitext(path)[1] == '.gz': data = load_gz(path)
+    elif ".zip>" in path: data = load_zip(path)
+    else: data = load_direct(path)
+    return data
 
-    def load_file(path: str) -> bytes:
-        if os.path.splitext(path)[1] == '.gz': data = load_gz(path)
-        elif ".zip>" in path: data = load_zip(path)
-        else: data = load_direct(path)
-        return data
+def savebytes(path, data) -> int:
+    def save_gz(path, data) -> int: # path/x.gz 
+        with gzip.GzipFile(path, 'wb') as fp: 
+            return fp.write(data)
+        
+    def save_zip(path, data) -> int: # path1/x.zip>path2/y
+        path1, path2 = path.split(".zip>")
+        path2 = path2.replace('\\', '/')
+        with zipfile.ZipFile(path1 + ".zip", 'a') as fp1:
+            now = datetime.now()
+            info = zipfile.ZipInfo(filename=path2, date_time= \
+                    (now.year, now.month, now.day, now.hour, now.minute, now.second))
+            fp1.writestr(info, data)
+            return len(data)
+    
+    def save_direct(path, data) -> int:
+        with open(path, 'wb') as fp:
+            return fp.write(data)
+    
+    if os.path.splitext(path)[1]==".gz": return save_gz(path, data)
+    elif ".zip>" in path: return save_zip(path, data)
+    else: return save_direct(path, data)
+
+def loadfiles(targets: Union[int, str, List]=None):
+    """
+    :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore'), 'k'], 
+    """
+    
+    if targets == None: targets = [0]
+    if type(targets) != list:  targets = [targets]
     
     def wrapper1(func): # decorator(dec_args)(func)(fun_args)
-        def wrapper2(*args, **kw):
-            newargs = list(args)
-            for i, t in enumerate(indexs):
-                if type(t) == int and type(newargs[t]) == str: 
-                    newargs[t] = load_file(newargs[t])
-                elif type(t) == str and t in kw and type(kw[t]) == str:
-                    kw[t] = load_file(kw[t])
-            return func(*newargs, **kw)
+        def wrapper2(*_args, **kw):
+            args = list(_args)
+            for i, t in enumerate(targets):
+                w = None # for args or kw
+                t0 = t[0] if type(t)==tuple else t # for index
+                t1 = t[1:] if type(t)==tuple else None # for encoding, encoding_error
+                if type(t0)==int and type(args[t0])==str: w=args
+                elif type(t0)==str and t in kw and type(kw[t0]) == str: w=kw
+                if w is None: continue # no target arg
+                data = loadbytes(w[t0])
+                w[t0] = readlines(data, *t1) if t1 else data
+            return func(*args, **kw)
         return wrapper2
     return wrapper1
 
@@ -99,8 +134,8 @@ class msg_t:
     type: int = 0
 
 # serilization functions
-def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], outpath: str = None, *,  
-                encoding="utf-8", width_index = (5, 6, 3)) -> List[str]:
+def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], 
+        outpath: str = None, *, encoding="utf-8", width_index = (5, 6, 3)) -> List[str]:
     """
     format text, such as ●num|addr|size● text
     :param ftexts1[]: text dict array in '○' line, 
@@ -117,16 +152,14 @@ def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], outpath: str = No
     fstr1 = "○{num:0%dd}|{addr:0%dX}|{size:0%dX}○ {text}\n" \
             % (width_num, width_addr, width_size)
     fstr2 = fstr1.replace('○', '●')
-    if not ftexts1: ftexts1 = [None for x in ftexts2]
-    if not ftexts2: ftexts2 = [None for x in ftexts1]
+    if not ftexts1: ftexts1 = [None] * len(ftexts2)
+    if not ftexts2: ftexts2 = [None] * len(ftexts1)
     for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
         if t1: lines.append(fstr1.format(num=i, addr=t1.addr, size=t1.size, text=t1.text))
         if t2: lines.append(fstr2.format(num=i, addr=t2.addr, size=t2.size, text=t2.text))
         lines.append("\n")
 
-    if outpath:
-        with codecs.open(outpath, 'w', encoding) as fp:
-            fp.writelines(lines)
+    if outpath: savebytes(outpath, writelines(lines, encoding))
 
     return lines 
 
@@ -142,14 +175,15 @@ def load_ftext(inobj: Union[str, List[str]], *,
 
     ftexts1, ftexts2 = [], []
     lines = readlines(inobj, encoding, 'ignore') if type(inobj) != list else inobj
+    if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff") # remove bom
     for line in lines:
         indicator = line[0]
         if indicator == "#": continue
-        if indicator not in {"○", "●"}: continue
+        if indicator != "○" and indicator != "●": continue
         line  = line.rstrip('\n').rstrip('\r')
         _, t1, *t2 = line.split(indicator)
         t2 = "".join(t2)
-        ftext = ftext_t(text=t2[1:])
+        ftext = ftext_t(-1, 0, t2[1:])
         try: 
             _, t12, t13 = t1.split('|')
             ftext.addr, ftext.size = int(t12, 16), int(t13, 16)
@@ -166,9 +200,7 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
         for d in t.tcode: raw_str += f"{d:02X}"
         line = ("{:s}={:s}\n".format(raw_str, t.tchar))
         lines.append(line)
-    if outpath:
-        with codecs.open(outpath, "w", encoding) as fp:
-            fp.writelines(lines)
+    if outpath: savebytes(outpath, writelines(lines, encoding))
     return lines
 
 @loadfiles(0)

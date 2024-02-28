@@ -25,8 +25,7 @@ jobs:
     
     - name: make python enviroment
       run: |
-        python -m pip install nuitka zstandard
-        python -m pip install python-docx
+        python -m pip install -r .\project\pyexe_${{ matrix.pyexe_name }}\requirements.txt
     
     - name: build single pyexe by nuitka 
       run: |

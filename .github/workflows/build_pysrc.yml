@@ -1,0 +1,55 @@
+name: build_pysrc
+on:
+  push: {tags:  ['v*'] } # Push events to matching v*, i.e. v1.0, v20.15.10
+  pull_request: 
+
+permissions:
+  contents: write
+
+jobs:
+  test_pysrc:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: pull and init
+      uses: actions/checkout@v3
+      with: {submodules: true}
+
+    - name: make enviroment
+      run: |
+        pip install python-docx pillow numpy numba
+
+    - name: test pysrc
+      run: |
+        cd project/pysrc_all && chmod +x *.sh && ./test_pysrc.sh
+
+    - name: test pycli
+      run: |
+        cd project/pysrc_all && chmod +x *.sh && ./test_pycli.sh
+
+  build_pysrc:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: pull and init
+      uses: actions/checkout@v3
+      with: {submodules: true}
+
+    - name: make enviroment
+      run: |
+        sudo apt-get update && sudo apt-get install p7zip-full
+        pip install python-docx pillow numpy numba
+    
+    - name: build pysrc
+      run: |
+        cd project/pysrc_all 
+        chmod +x *.sh && bash ./build_pysrc.sh
+        archive_name=LocalizationPytool_${{ github.ref_name }}
+        7z a ${archive_name}.7z build
+        7z rn ${archive_name}.7z build ${archive_name}
+
+    - name: create a release
+      uses: ncipollo/release-action@v1
+      if: github.event_name == 'push'
+      with:
+        artifacts: "project/pysrc_all/*.7z"
+        allowUpdates: "true"
+        token: ${{ secrets.GITHUB_TOKEN }}

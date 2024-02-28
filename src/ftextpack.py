@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-g_description = """
+description = """
 A flexble format with low memory implementation
     v0.2, developed by devseed
 
@@ -18,10 +18,10 @@ from dataclasses import dataclass, field
 from typing import Callable, List
 
 try:
-    from libutil import loadfiles, ftext_t, load_ftext, load_tbl
+    from libutil import savebytes, loadfiles, ftext_t, load_ftext, load_tbl
     from libtext import encode_extend
 except ImportError:
-    exec("from libutil_v600 import loadfiles, ftext_t, load_ftext, load_tbl")
+    exec("from libutil_v600 import savebytes, loadfiles, ftext_t, load_ftext, load_tbl")
     exec("from libtext_v600 import encode_extend")
 
 __version__ = 200
@@ -75,7 +75,7 @@ def pack_ftexts(binobjs, ftextobjs,
         textbytes = srcdata[t.addr: t.addr+t.size]
         tcrc = zlib.crc32(textbytes)
         if tcrc in crcmap and pack_nodup:
-            logging.info(f"dropdup crc=0x{tcrc:x} addr=0x{t.ddr:x} size=0x{t.size:x} text='{t.text}'") 
+            logging.info(f"dropdup [crc=0x{tcrc:x} addr=0x{t.ddr:x} size=0x{t.size:x} text='{t.text}]'") 
             return None
         if pack_org: start = bufio.tell(); bufio.write(textbytes); bufio.write(b'\x00')
         tmp = struct.pack("4I", tcrc, start, t.addr, t.size)
@@ -111,11 +111,9 @@ def pack_ftexts(binobjs, ftextobjs,
             info.org, info.now = org, now
             infos.append(info)
 
-    def save(fpack: Fpack, outobj, pack_compact=False):
-        _fp = None
-        if type(outobj) != str: fp=outobj
-        else: fp = open(outobj, 'wb+'); _fp = fp
-        
+    def save_fpack(fpack: Fpack, outobj, pack_compact=False) -> None:
+        fp = outobj if type(outobj)!=str else BytesIO() 
+        start = fp.tell()
         index, infos, content =fpack.index, fpack.infos, fpack.content
         fp.write(index)
         fp.seek(-sizeof(ftextpack_info_t), 1)
@@ -125,7 +123,9 @@ def pack_ftexts(binobjs, ftextobjs,
                 fp.write(struct.pack("<4I", *tmp))
             else: fp.write(info)
         fp.write(content)
-        if _fp: _fp.close()
+        end = fp.tell()
+        if type(outobj) == str: savebytes(outobj, fp.getvalue()); fp.close()
+        logging.info(f"save 0x{end-start:x} bytes to {repr(outobj)}")
 
     # prepare enviroment
     bufio = BytesIO()
@@ -161,9 +161,9 @@ def pack_ftexts(binobjs, ftextobjs,
     size_textinfo = sizeof(ftextpack_textinfo_t)
     if not pack_compact: index.offset = size_index + (n-1)*size_info
     else: index.offset = size_index - size_info + n*size_textinfo
-    
+
     fpack = Fpack(index, infos, bufio.getbuffer()[:bufio.tell()])
-    if outobj: save(fpack, outobj, pack_compact)
+    if outobj: save_fpack(fpack, outobj, pack_compact)
     return fpack
 
 def cli(cmdstr=None):
@@ -178,7 +178,7 @@ def cli(cmdstr=None):
         pack_sort=args.pack_sort, pack_org=args.pack_org, 
         pack_nodup=args.pack_nodup, pack_compact=args.pack_compact)
 
-    parser = argparse.ArgumentParser(description=g_description)
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument("binpath", help="bin file or dir")
     parser.add_argument("ftextpath", help="ftext file or dir")
     parser.add_argument("-o", "--outpath", default="data.fp01")
@@ -201,7 +201,6 @@ def cli(cmdstr=None):
     logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
                         format="%(levelname)s:%(funcName)s: %(message)s")
     cmd_pack(args)
-    
 
 if __name__ == '__main__':
     cli()

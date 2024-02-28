@@ -25,20 +25,56 @@ See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for spe
 
 ## CLI Example
 
+Using ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`
+For these examples, you need `mkdir -p project/pyexe_bintext/build` before.  
+
 ### bintext
 
 You can also replace `python src/libtext.py` with `cbintext.exe` in command line.  
 
 ```shell
+
+# insert ftext (save direct or in gz file)
 python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pyexe_bintext/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
+python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pyexe_bintext/build/COM001_rebuild.bin.gz --log_level info
+
+# extract ftext from bin file (save direct or in zip file)
 python src/libtext.py extract project/pyexe_bintext/build/COM001_rebuild.bin -o project/pyexe_bintext/build/COM001_rebuild.txt --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+python src/libtext.py extract project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+
+# check ftext (direct or in zip file)
 python src/libtext.py check project/pyexe_bintext/build/COM001_rebuild.txt --refer project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001_rebuild_check.txt" --log_level info -e sjis
+python src/libtext.py check "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
 ```
 
 ### ftextpack
 
 ```shell
-python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.fp01 -t test/sample/COM001.tbl --pack_compact
+# pack both of origin and new text in fp01 file
+python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.fp01 -t test/sample/COM001.tbl --pack_org
+
+# pack compact mode in zip file
+python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
+```
+
+### ftextcvt
+
+``` shell
+# json convert
+python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.json
+python src/ftextcvt.py project/pyexe_bintext/build/COM001.json -o project/pyexe_bintext/build/COM001.json.txt
+
+# csv convert
+python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.csv
+python src/ftextcvt.py project/pyexe_bintext/build/COM001.csv -o project/pyexe_bintext/build/COM001.csv.txt
+
+# docx convert
+python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.docx
+python src/ftextcvt.py project/pyexe_bintext/build/COM001.docx -o project/pyexe_bintext/build/COM001.docx.txt
+
+# pretty ftext format
+python src/ftextcvt.py project/pyexe_bintext/build/COM001.json.txt -o project/pyexe_bintext/build/COM001.json.txt
+
 ```
 
 ## File Formats
@@ -132,4 +168,12 @@ v0.6, remake to increase speed and simplify functions
 v0.1, initial version with data.fp01
 v0.1.1, add allow_compat for smaller memory use
 v0.2, remake according to libtext v0.6
+```
+
+* `ftextcvt.py`
+
+```shell
+v0.1, initial version with formatftext, docx2ftext, ftext2docx
+v0.2, add support for csv and json, compatiable with paratranz.cn
+v0.3, remake according to libtext v0.6
 ```

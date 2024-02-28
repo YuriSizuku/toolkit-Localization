@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
-g_description = """
+description = """
 A binary text tool (remake) for text exporting, importing and checking
     v0.6, developed by devseed
 """
 
-import codecs
 import logging
 import argparse
 from io import StringIO, BytesIO
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
-    from libutil import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
+    from libutil import writelines, savebytes, loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil_v600 import loadfiles, readlines, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
+    exec("from libutil_v600 import writelines, savebytes, loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
 
 __version__  = 600
 
@@ -72,16 +71,18 @@ def encode_tbl(text: str, tbl: List[tbl_t], bytes_fallback: bytes=None) -> bytes
         encode_tbl.tbl = tbl
         encode_tbl.tblmap = dict((t.tchar, t.tcode) for t in tbl)
 
-    data = BytesIO()
+    bufio = BytesIO()
     tblmap = encode_tbl.tblmap
     for i, c in enumerate(text):
-        if c in tblmap: data.write(tblmap[c])
-        elif bytes_fallback: data.write(bytes_fallback)
+        if c in tblmap: bufio.write(tblmap[c])
+        elif bytes_fallback: bufio.write(bytes_fallback)
         else:
-            logging.error(f"failed with {c} at {i}, text='{text}'")
+            bufio.close()
+            logging.error(f"encode failed at {i} with {c} [text='{text}]'")
             return None
-    
-    return data.getvalue()
+    data = bufio.getvalue()
+    bufio.close()
+    return data
 
 def decode_tbl(data: bytes, tbl: List[tbl_t]) -> str:
     """
@@ -95,22 +96,24 @@ def decode_tbl(data: bytes, tbl: List[tbl_t]) -> str:
         decode_tbl.maxlen = max(len(t.tcode) for t in tbl)
 
     i = 0
-    text = StringIO()
+    sbufio = StringIO()
     tblrmap = decode_tbl.tblrmap
     maxlen = decode_tbl.maxlen
     while i < len(data):
         flag = False
         for j in range(1, maxlen+1):
             if data[i: i+j] not in tblrmap: continue
-            text.write(tblrmap[data[i:i+j]])
+            sbufio.write(tblrmap[data[i:i+j]])
             flag = True
             break
         if not flag:
-            logging.error(f"[decode_tbl] failed with at {i}, data={data.hex(' ')}")
+            sbufio.close()
+            logging.error(f"decode failed at {i} [data={data.hex(' ')}]")
             return None
         i += j
-    
-    return text.getvalue()
+    text = sbufio.getvalue()
+    sbufio.close()
+    return text
 
 def encode_general(text: str, enc: Union[str, List[tbl_t]]='utf-8', enc_error: Union[str, bytes]='ignore'):
     """
@@ -123,7 +126,7 @@ def encode_general(text: str, enc: Union[str, List[tbl_t]]='utf-8', enc_error: U
         try: 
             return text.encode(enc, enc_error)
         except UnicodeEncodeError as e:
-            logging.error(f"failed {e}, text='{text}'")
+            logging.error(f"encode failed {e} [text='{text}]'")
             return None
     else: return encode_tbl(text, enc, enc_error)
 
@@ -287,6 +290,46 @@ def detect_text_utf8 (data, min_len=3) -> Tuple[List[int], List[int]]:
     
     return addrs, sizes
 
+def check_ftextlines(lines: List[str]) -> List[msg_t]:
+    indicator_pre = "●"
+    msgs = []
+    if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff") # remove bom
+    for i, line in enumerate(lines):
+        indicator = line[0]
+        if indicator == "#": continue
+        if indicator not in {"○", "●"}: continue
+        line = line.rstrip('\n').rstrip('\r')
+        
+        # check indicator
+        if indicator == indicator_pre:
+            msg = msg_t(-1, f"indicator {indicator} same as last [lineno={i+1} line='{line}']", logging.WARNING)
+            logging.warning(f"{msg.msg}")
+            msgs.append(msg)
+        if line.find(indicator, 1) < 0:
+            msg = msg_t(-1, f"indicator {indicator} not closed [lineno={i+1} line='{line}']", logging.ERROR)
+            logging.error(f"{msg.msg}")
+            msgs.append(msg)
+            indicator_pre = indicator
+            continue
+        
+        # check index and text
+        _, t1, *t2 = line.split(indicator)
+        t2 = "".join(t2)
+        if t2 and len(t2) and t2[0]!=" ":
+            msg = msg_t(-1, f"must have a space ' ' before text [lineno={i+1} line='{line}]'", logging.ERROR)
+            logging.error(f"{msg.msg}")
+            msgs.append(msg)
+        try: 
+            _, t12, t13 = t1.split('|')
+            addr, size = int(t12, 16), int(t13, 16)
+        except ValueError as e:
+            msg = msg_t(-1, f"parse failed {repr(e)} [lineno={i+1} line='{line}]'", logging.ERROR)
+            logging.error(f"{msg.msg}")
+            msgs.append(msg)
+        indicator_pre = indicator
+
+    return msgs
+
 @loadfiles(0)
 def extract_ftexts(binobj: Union[str, bytes], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
@@ -318,7 +361,7 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
             if has_cjk and not hascjk(text): continue
             text = text.replace('\n', r'[\n]').replace('\r', r'[\r]')
             ftexts.append(ftext_t(addr, size, text))
-            logging.info(f"extract i={i} addr=0x{addr:x} size=0x{size:x} text='{text}'")
+            logging.info(f"extracted [i={i} addr=0x{addr:x} size=0x{size:x} text='{text}]'")
         return ftexts
 
     data = memoryview(binobj)
@@ -328,10 +371,10 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
     addrs = list(map(lambda x: x + data_slice.start, addrs))
     ftexts = _make_ftexts(addrs, sizes)
     if outpath: save_ftext(ftexts, ftexts, outpath)
-    logging.info(f"finished, extract {len(ftexts)} ftexts")
+    logging.info(f"finish extract {len(ftexts)} ftexts")
     return ftexts
 
-@loadfiles([0, 1, "referobj"])
+@loadfiles([0, (1, 'utf-8'), "referobj"])
 def insert_ftexts(binobj: Union[str, bytes], 
         ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], 
         outpath=None, encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
@@ -353,6 +396,7 @@ def insert_ftexts(binobj: Union[str, bytes],
     """
     
     def addr_find(t:ftext_t, data: bytes, refdata: bytes, addr_cache: set=None) -> int:
+        if t.addr < 0 or t.size <= 0: return -1
         addr = 0
         n = len(refdata)
         if t.addr + t.size > n: 
@@ -377,7 +421,7 @@ def insert_ftexts(binobj: Union[str, bytes],
                     addr_cache |= {addr}
                     return addr
             else: 
-                logging.warning(f"not find, addr=0x{t.addr:x} text='{t.text}'")
+                logging.warning(f"ref addr not find [addr=0x{t.addr:x} text='{t.text}]'")
                 return -1
 
     def insert_adjust(encbytes: bytes, t: ftext_t, *,
@@ -388,7 +432,7 @@ def insert_ftexts(binobj: Union[str, bytes],
                 encbytes += padding(t.size - len(encbytes), bytes_padding)
         else:
             if not insert_longer: 
-                logging.warning(f"strip longer text, addr={t.addr:x} size=0x{len(encbytes):x}>0x{t.size:x}")
+                logging.warning(f"strip longer text 0x{len(encbytes):x}>0x{t.size:x} [addr={t.addr:x}]")
                 encbytes = encbytes[:t.size]
         
         # adjust encbytes align
@@ -404,18 +448,18 @@ def insert_ftexts(binobj: Union[str, bytes],
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     text_replace = text_replace if text_replace else dict()
-    _, ftexts = load_ftext(readlines(ftextsobj)) if type(ftextsobj)==bytes else ftextsobj
+    _, ftexts = ftextsobj if type(ftextsobj)==tuple else load_ftext(ftextsobj)
     ftexts.sort(key=lambda x: x.addr)
     logging.info(f"load {len(ftexts)} ftexts")
 
     shift = 0
     last_addr = 0
     srcdata = bytes(binobj)
-    dstio = BytesIO(srcdata)
+    dstio = BytesIO()
     for i, t in enumerate(ftexts):
         addr = addr_find(t, srcdata, refdata, refcache) if refdata else t.addr
         if addr < 0: 
-            logging.warning(f"ftext addr not find, i={i} addr=0x{t.addr:x} text='{t.text}'")
+            logging.warning(f"ftext addr not find [i={i} addr=0x{t.addr:x} text='{t.text}]'")
             continue
         dstio.write(srcdata[last_addr: addr])
         text = f_before(srcdata, t) if f_before else t.text
@@ -424,7 +468,7 @@ def insert_ftexts(binobj: Union[str, bytes],
         encbytes = insert_adjust(encbytes, t, insert_longer=insert_longer, 
             insert_shorter=insert_shorter, insert_align=insert_align, bytes_padding=bytes_padding)
         if f_after: 
-            dstdata = dstio.getbuffer()[:dstio.tell()]
+            dstdata = dstio.getbuffer()
             encbytes = f_after(srcdata, dstdata, encbytes, t)
             dstio.flush()
             del dstdata
@@ -437,16 +481,17 @@ def insert_ftexts(binobj: Union[str, bytes],
                 if t.addr >= addr: t.addr_new  = t.addr + shift
                 if t.toaddr >= addr:  t.toaddr_new = t.toaddr + shift
         _sizestr = f"0x{t.size:x}" + (f"->0x{len(encbytes):x}" if len(encbytes)!=t.size else "")
-        logging.info(f"insert addr=0x{addr:x} size={_sizestr} text='{text}'")
+        logging.info(f"inserted [addr=0x{addr:x} size={_sizestr} text='{text}]'")
 
     dstio.write(srcdata[last_addr:])
-    if outpath: 
-        with open(outpath, 'wb') as fp: fp.write(dstio.getbuffer()[:dstio.tell()] )
-    logging.info(f"finished, datasize=0x{len(srcdata):x}->0x{dstio.tell():x}")
-    return dstio.getbuffer()[:dstio.tell()] 
+    dstdata = dstio.getvalue()
+    dstio.close()
+    if outpath: savebytes(outpath, dstdata)
+    logging.info(f"finished with datasize 0x{len(srcdata):x}->0x{len(dstdata):x}")
+    return dstdata
 
-@loadfiles([0, "referobj"])
-def check_ftexts(ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outpath=None, 
+@loadfiles([(0, 'utf-8', 'ignore'), "referobj"])
+def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
         text_noeval=False, text_replace: Dict[bytes, bytes]=None,
         bytes_fallback: bytes = None, insert_longer=False, 
@@ -456,34 +501,35 @@ def check_ftexts(ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], out
     """
     
     msgs: List[msg_t] = []
+    lines = linesobj
     tbl = load_tbl(tblobj) if tblobj else None
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     refdata = memoryview(referobj) if referobj else None
     text_replace = text_replace if text_replace else dict()
-    ftexts1, ftexts2 = load_ftext(readlines(ftextsobj)) if type(ftextsobj)==bytes else ftextsobj
+    msgs += check_ftextlines(lines)
+    ftexts1, ftexts2 = load_ftext(lines)
     if len(ftexts1) != len(ftexts2):
-        msg = msg_t(0, f"○● count not match, {len(ftexts1)}!={len(ftexts2)}", logging.WARNING)
+        msg = msg_t(-1, f"○● count not match {len(ftexts1)}!={len(ftexts2)}", logging.WARNING)
         logging.warning(msg.msg)
         msgs.append(msg)
     
     for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
-        # check match
-        if t1.addr != t2.addr:
-            msg = msg_t(t1.addr, f"○●{i} addr not match, 0x{t1.addr:x}!=0x{t2.addr:x}", logging.WARNING)
-            logging.warning(f"addr=0x{msg.id:x} {msg.msg}")
-            msgs.append(msg)
-        if t1.size != t2.size: 
-            msg = msg_t(t1.addr, f"○●{i} size not match, 0x{t1.size:x}!=0x{t2.size:x}", logging.WARNING)
-            logging.warning(f"addr=0x{msg.id:x} {msg.msg}")
+        # check org now match
+        err = ""
+        if t1.addr != t2.addr: err += f"addr not match 0x{t1.addr:x}!=0x{t2.addr:x}, "
+        if t1.size != t2.size: err += f"size not match 0x{t1.size:x}!=0x{t2.size:x} "
+        if len(err) > 0:
+            msg = msg_t(t1.addr, err + f"[○●no={i+1} addr=0x{t1.addr} text='{t1.text}']", logging.WARNING)
+            logging.warning(f"{msg.msg}")
             msgs.append(msg)
         
         # check src data
         if refdata:
             encbytes = encode_extend(t1.text, enc, enc_error, text_noeval)
             if encbytes != refdata[t1.addr: t1.addr + t1.size]:
-                msg = msg_t(t1.addr, f"○{i} text not match, {t1.text}", logging.WARNING)
-                logging.warning(f"addr=0x{msg.id:x} {msg.msg}")
+                msg = msg_t(t1.addr, f"text not match [○no{i+1} addr=0x{t1.addr} text='{t1.text}']", logging.WARNING)
+                logging.warning(f"{msg.msg}")
                 msgs.append(msg)
 
         # check dst data
@@ -497,19 +543,20 @@ def check_ftexts(ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], out
                 if x is None: reject |= {c}
         if len(reject): 
             reject_str = " ".join(list(reject))
-            msg = msg_t(t1.addr, f"●{i} encode failed, reject=({reject_str}), text='{text}'", logging.ERROR)
-            logging.error(f"addr=0x{msg.id:x} {msg.msg}")
+            _s = f"encode failed, reject=({reject_str}) [●no{i+1} addr={t2.addr:x} text='{text}]'"
+            msg = msg_t(t1.addr, _s, logging.ERROR)
+            logging.error(f"{msg.msg}")
             msgs.append(msg)
 
         encbytes = encode_general(text, enc, enc_error)
         if not insert_longer and encbytes and len(encbytes) > t1.size:
-            msg = msg_t(t1.addr, f"●{i} size owerflow, 0x{len(encbytes):x}>0x{t2.size:x}", logging.WARNING)
-            logging.error(f"addr=0x{msg.id:x}, {msg.msg}")
+            err = f"size owerflow 0x{len(encbytes):x}>0x{t2.size:x} [●no{i+1} addr={t2.addr:x} text='{text}]"
+            msg = msg_t(t1.addr, err, logging.WARNING)
+            logging.warning(f"{msg.msg}")
             msgs.append(msg)
 
-    if outpath:
-        with codecs.open(outpath, "w", "utf-8") as fp:
-            fp.writelines(f"{logging.getLevelName(t.type)}:{t.id: x}: {t.msg}\n" for t in msgs)
+    lines = [f"{logging.getLevelName(t.type)}: {t.msg}\n" for t in msgs]
+    if outpath: savebytes(outpath, writelines(lines))
 
     return msgs
 
@@ -547,7 +594,7 @@ def cli(cmdstr=None):
             text_replace=text_replace, text_noeval=args.text_noeval,
             bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
 
-    parser = argparse.ArgumentParser(description=g_description)
+    parser = argparse.ArgumentParser(description=description)
     subparsers = parser.add_subparsers(title="sub command")
     parser_e = subparsers.add_parser("extract", help="extract text in binfile to ftext")
     parser_i = subparsers.add_parser("insert", help="insert ftext to binfile")
