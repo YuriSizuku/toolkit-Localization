@@ -8,7 +8,7 @@ import libutil as util
 import ftextpack
 
 class TestFpack(unittest.TestCase):
-    def test_com001(self):
+    def test_file_com001(self):
         bufio = BytesIO()
         with open(paths_bin["COM001"], 'rb') as fp: srcdata = fp.read()
         ftexts1, ftexts2 = util.load_ftext(paths_ftext["COM001"])

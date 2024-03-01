@@ -12,8 +12,8 @@ if ! [ -d build ]; then mkdir build; fi
 
 build_pysrc ../../src ./build libutil
 build_pysrc ../../src ./build libtext
-# build_pysrc ../../src ./build libfont
-# build_pysrc ../../src ./build libimage
-# build_pysrc ../../src ./build libalg
+build_pysrc ../../src ./build libfont
+build_pysrc ../../src ./build libimage
+# build_pysrc ../../src ./build linword
 build_pysrc ../../src ./build ftextcvt
 build_pysrc ../../src ./build ftextpack

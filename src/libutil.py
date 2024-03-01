@@ -15,7 +15,10 @@ from typing import Union, List, Tuple
 __version__  = 600
 
 # util functions
-def readlines(data: bytes, encoding='utf-8', encoding_error='ignore') -> List[str]:
+def readlines(data: bytes, encoding='utf-8', encoding_error='ignore', keepends=True) -> List[str]:
+    return str.splitlines(str(data, encoding, encoding_error), keepends=keepends)
+
+def readlines_deprecated(data: bytes, encoding='utf-8', encoding_error='ignore') -> List[str]:
     i = 0
     start = 0
     lines = []
@@ -31,7 +34,7 @@ def readlines(data: bytes, encoding='utf-8', encoding_error='ignore') -> List[st
         i += 1
     if start < len(mem): lines.append(str(mem[start:], encoding, encoding_error))
     return lines
-   
+
 def writelines(lines: List[str], encoding='utf-8', encoding_error='ignore') -> bytes:
     bufio = BytesIO()
     for line in lines: 
@@ -168,19 +171,19 @@ def load_ftext(inobj: Union[str, List[str]], *,
         encoding="utf-8") -> Tuple[List[ftext_t], List[ftext_t]]:
     """
     format text, such as ●num|addr|size● text
-    :param inobj: can be path, or lines[] 
+    :param inobj: can be path, or lines[], in the end, no \r \n
     :return: ftexts1[]: text dict array in '○' line, 
              ftexts2[]: text dict array in '●' line
     """
 
     ftexts1, ftexts2 = [], []
-    lines = readlines(inobj, encoding, 'ignore') if type(inobj) != list else inobj
+    lines = readlines(inobj, encoding, "ignore", False) if type(inobj) != list else inobj
     if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff") # remove bom
     for line in lines:
+        if len(line) <= 0: continue
         indicator = line[0]
         if indicator == "#": continue
-        if indicator != "○" and indicator != "●": continue
-        line  = line.rstrip('\n').rstrip('\r')
+        if indicator not in {"○", "●"}: continue
         _, t1, *t2 = line.split(indicator)
         t2 = "".join(t2)
         ftext = ftext_t(-1, 0, t2[1:])
@@ -207,22 +210,20 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
 def load_tbl(inobj: Union[str, List[str]], *, encoding='utf-8') ->  List[tbl_t]:
     """
     tbl file format "tcode=tchar", 
-    :param inobj: can be path, or lines_text[] 
+    :param inobj: can be path, or lines[], in the end, no \r \n
     :return: [(charcode, charstr)]
     """
 
     tbl: List[tbl_t] = []
-    lines = readlines(inobj, encoding, 'ignore') if type(inobj) != list else inobj
+    lines = readlines(inobj, encoding, 'ignore', False) if type(inobj) != list else inobj
     for line in lines:
+        if len(line) <= 0: continue
         indicator = line[0]
         if indicator == "#": continue
-        line = line.rstrip('\n').rstrip('\r')
-        if len(line) <= 0: continue
         if line.find("==") == -1: t1, tchar = line.split('=')
         else: t1 = line.split('=')[0]; tchar = '='
-        tcode = bytearray()
-        for i in range(0, len(t1), 2):
-            tcode.append(int(t1[i: i+2], 16)) 
+        tcode = bytearray(len(t1)//2)
+        for i in range(len(t1)//2): tcode[i] = int(t1[2*i: 2*i+2], 16)
         tbl.append(tbl_t(bytes(tcode), tchar))
 
     return tbl

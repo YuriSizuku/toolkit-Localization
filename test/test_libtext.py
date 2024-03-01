@@ -1,4 +1,3 @@
-import codecs
 import logging
 import unittest
 from copy import deepcopy
@@ -7,7 +6,7 @@ from common import *
 import libtext as bintext
 
 class TestConvert(unittest.TestCase):
-    def test_sentense(self):
+    def test_example_str(self):
         tbl = bintext.load_tbl(paths_tbl["COM001"])
         text = "湧き出る温泉と豊かな自然に包まれた風光明媚な地で, 你"
         data = bintext.encode_tbl(text, tbl, "#".encode())
@@ -21,7 +20,7 @@ class TestConvert(unittest.TestCase):
         self.assertEqual(text.replace("你", "#"), text2)
 
 class TestExtract(unittest.TestCase):
-    def test_com001(self):
+    def test_file_com001(self):
         # test extract_ftexts by sjis and tbl
         ftexts_sjis = bintext.extract_ftexts(paths_bin["COM001"], encoding='sjis')
         ftexts_tbl = bintext.extract_ftexts(paths_bin["COM001"], tblobj=paths_tbl["COM001"])
@@ -31,7 +30,7 @@ class TestExtract(unittest.TestCase):
             self.assertEqual(t1.size, t2.size)
             self.assertEqual(t1.text, t2.text)
 
-    def test_sentense(self):
+    def test_example_str(self):
         dummys = [b'\x01\xff\x03', b'\x15', b'\xff\xff']
         text = "湧き出る温泉と豊かな自然に包まれた風光明媚な地で"
 

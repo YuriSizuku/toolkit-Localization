@@ -1,250 +1,295 @@
 """
-something about texture and picture convert
-    v0.2.1, develope by devseed
+A image tool (remake) for image encoding or decoding, 
+all the intermediate format is rgba, index in alpha channel
+    v0.3, develope by devseed
 """
 
 import math
-import struct
-import numpy as np
-import argparse
+import logging
 from queue import Queue
-from PIL import Image, ImageOps
+from typing import Tuple
 
-LIBTEXTURE = 210
+import numba
+import numpy as np
+from numba import njit, prange, void, uint8, int32
+from sklearn.cluster import KMeans
+readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
 
-texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
+__version__ = 300
 
-def swizzle_regular(n, start=0, resmat=None):
+# methods for generate patterns
+def make_swizzle_pattern(tileorder) -> np.ndarray:
     """
-    for generating Swizzling square
+    make nxn swizzle, for example n=2, tilen=2, resn=4
         0	1	4	5
         2	3	6	7
         8	9	12	13
         10	11	14	15
         the square side is 2^n
     """
-    w = h = 2**n
-    if resmat is None:
-        resmat = np.zeros([h, w], dtype=np.int)
-    else:
-        resmat = resmat.reshape([h, w])
-    resmat[h - 1, w - 1] = h*w - 1 + start
+
+    w = h = 2**tileorder
+    res = np.zeros([h, w], dtype=np.int32)
+    res[h - 1, w - 1] = h*w - 1
     _que = Queue()
     _que.put((0, 0, w - 1, h - 1))
     while not _que.empty():
         x0, y0, x1, y1 = _que.get()
-        dx = np.int((x1+1-x0) // 2)
-        dy = np.int((y1+1-y0) // 2)
-        d = np.int((y1+1-y0)*(x1+1-x0)//4)
-        idx = resmat[y1][x1]
-        resmat[y1][x0+dx-1] = idx - d
-        resmat[y0+dy-1][x1] = idx - 2*d
-        resmat[y0+dy-1][x0+dx-1] = idx - 3*d
+        dx = int((x1+1-x0) // 2)
+        dy = int((y1+1-y0) // 2)
+        d = int((y1+1-y0)*(x1+1-x0)//4)
+        idx = res[y1][x1]
+        res[y1][x0+dx-1] = idx - d
+        res[y0+dy-1][x1] = idx - 2*d
+        res[y0+dy-1][x0+dx-1] = idx - 3*d
         if d > 1:
             _que.put((x0+dx, y0+dy, x1, y1))
             _que.put((x0, y0+dy, x0+dx-1, y1))
             _que.put((x0+dx, y0, x1, y0+dy-1))
             _que.put((x0, y0, x0+dx-1, y0+dy-1))
-    return resmat
+    return res
 
-
-def swizzle_tile(imgw, imgh, tilew=1, tileh=1, start=0, resmat=None):
+@njit([(int32[:, :])(int32, int32, int32, int32)], parallel=True)
+def make_tile_pattern(tilew, tileh, n_tile=4, n_row=2) -> np.ndarray:
     """
-        for generating Swizzling mat with tile
+`   make tilehxtilew swizzle, for example 3 tile (2, 4),
+        0	1	2	3  8  9  10 11 
+        4	5	6	7  12 13 14 15
+        16	17	18	19 -1 -1 -1 -1 
+        20	21	22	23 -1 -1 -1 -1
+        the square side is 2^n`
     """
-    tileyn = np.int(np.ceil(imgh/tileh))
-    tilexn = np.int(np.ceil(imgw/tilew))
-    if resmat is None:
-        resmat = np.zeros(tileyn*tilexn, dtype=np.int)
-    else:
-        resmat = resmat.reshape(tileyn*tilexn)
-    d1 = min(tileyn, tilexn)
-    d2 = max(tileyn, tilexn)
-    n = np.int(np.ceil(np.log2(d1)))
-    for pos in range(0, d1*d2, d1*d1):
-        swizzle_regular(n, start + pos, 
-            resmat[pos: pos + d1*d1])
-    resmat = resmat.reshape([tileyn, tilexn])
-    return resmat
 
-def swillze_fill(swimat, tileunitmat, stride=1, resmat=None):
+    w, h = n_row*tilew, (n_tile + n_row - 1)// n_row * tileh
+    res = -np.ones((h, w), dtype=np.int32)
+    for tileidx in prange(n_tile):
+        for tiley in prange(tileh):
+            for tilex in prange(tilew):
+                stride_tile = w // tilew                  
+                x = (tileidx % stride_tile) * tilew + tilex
+                y = (tileidx // stride_tile) * tileh + tiley
+                res[y, x] = tileidx * tilew * tileh + tiley * tilew + tilex
+    return res
+
+def make_linear_palatte(bpp):
+    n = 2**bpp
+    tmp = np.linspace(0, 0xff, n, dtype=np.uint8).transpose()
+    return np.column_stack([tmp, tmp, tmp, tmp])
+
+texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
+
+# method for image decode, encode methods, explicit declar makes numba faster
+@njit([uint8(readonly(uint8, 2), readonly(uint8, 1))])
+def find_palatte(palatte, pixel):
     """
-        fill the tileunitmat into the swimat
+    find the most close palatte index of pixel
+    :return: index in palatte
     """
-    swiw = swimat.shape[1]
-    swih = swimat.shape[0]
-    tilew = tileunitmat.shape[1]
-    tileh = tileunitmat.shape[0]
-    tilesize = tilew * tileh * stride
-    h = swih * tileh
-    w = swiw * tilew
-    if resmat is None:
-        resmat = np.zeros([h, w], dtype=np.int)
+    
+    idx, dmin = uint8(0),  0x7FFFFFFF
+    tmp = np.zeros_like(pixel, dtype=np.int32)
+    for i in range(palatte.shape[0]):
+        d = 0
+        for j in range(tmp.shape[0]): 
+            t = pixel[j] - palatte[i][j]
+            d += np.abs(t) # numba not support np.dot on int
+            if d > dmin: break
+        if d==0: return i
+        if d < dmin: idx, dmin = i, d
+    return idx
 
-    for i in range(swiw):
-        for j in range(swih):
-            idx = swimat[j, i]
-            resmat[j*tileh:(j+1)*tileh,
-                i*tilew:(i+1)*tilew] = tileunitmat + idx*tilesize
-    return resmat
+@njit([(uint8[:, :, :])(readonly(uint8, 3),readonly(uint8, 2))], parallel=True)
+def encode_palatte(img: np.ndarray, palatte: np.ndarray)->np.ndarray:
+    """
+    encode rgba to index with alpha channel
+    """
 
-def raw2gray(data, width):
-    height = math.ceil(len(data) /  width)
-    gray = np.zeros((height, width), dtype=np.uint8)
-    print(width, height)
-    for row in range(height):
-        for col in range(width):         
-            start = row*width + col       
-            if start > len(data) -1:
-                print(row, col, start, " out of range")
-                break
-            gray[row][col] = struct.unpack("<B", data[start:start+1])[0] 
-    return gray
+    img2 = np.zeros_like(img, dtype=img.dtype)
+    for y in prange(img.shape[0]):
+        for x in prange(img.shape[1]):
+            img2[y][x][3] = find_palatte(palatte, img[y][x])
+    return img2
 
-def gray2raw(gray):
-    height, width = gray.shape
-    data = bytearray(height*width)
-    print(width, height, len(data))
-    for row in range(height):
-        for col in range(width):  
-            start = row*width + col
-            data[start:start+1] = struct.pack("<B", gray[row][col])
-    return data
+def decode_palatte(img: np.ndarray, palatte: np.ndarray)->np.ndarray:
+    """
+    decode index with alpha channel to rbga
+    """
 
-def raw2bgra(data, width, format="RGBA8888", *,compress_format="",is_bgr=False):
-    pixel_size = texture_size[format]
-    height = math.ceil(len(data) / (pixel_size * width))
-    bgra = np.zeros((height, width, 4), dtype=np.uint8)
-    print(width, height)
-    for row in range(height):
-        for col in range(width):                
-            flag = 0
-            start = (row*width + col) * pixel_size
+    return palatte[img[:, :, 3]]
 
-            if format == "RGBA8888":
-                if start > len(data) -4: 
-                    flag = 1
-                    print(row, col, start, " out of range")
-                    break
-                r, g, b, a = struct.unpack("<BBBB", data[start:start+4])
-            
-            elif format == "RGB332":
-                if start > len(data) -1:
-                    flag = 1
-                    print(row, col, start, " out of range")
-                    break
-                a = 255
-                d = struct.unpack("<B", data[start:start+1])[0] 
-                r = round((d >> 5) * 255 / 7)
-                g = round(((d >> 2) & 0b00000111) * 255 / 7)
-                b = round((d & 0b00000011) * 255 / 3)
+def quantize_palatte(img: np.ndarray, bpp) -> np.ndarray:
+    """
+    make palatte from img
+    """
 
-            elif format == "RGBA2222":
-                if start > len(data) -1:
-                    flag = 1
-                    print(row, col, start, " out of range")
-                    break
-                d = struct.unpack("<B", data[start:start+1])[0] 
-                r = round((d >> 6) * 255 / 3)
-                g = round(((d >> 4) & 0b00000011) * 255 / 3)
-                b = round(((d >> 2) & 0b00000011) * 255 / 3)
-                a = round((d & 0b00000011) * 255 / 3)
+    n = 2**bpp
+    k = KMeans(n_clusters=n, n_init=10)
+    k.fit(img.reshape([img.shape[0]*img.shape[1], img.shape[2]]))
+    c = k.cluster_centers_.astype(np.uint8)
+    palatte = c[np.argsort(np.sum(c, axis=1))]
+    return palatte
 
-            else: 
-                print(format + " is invalid !")
-                return None
+@njit([void(uint8[:], int32, int32, int32, readonly(uint8, 1))])
+def encode_pixel(data, bpp, offset, i, pixel):
+    """
+    encode pixel -> data
+    :param ndarray data: pixel buffer
+    :param int offset: start addr in data
+    :param int i: the i-th pixel
+    :param ndarray pixel: current pixel in rgba format
+    """
 
-            if is_bgr:
-                t = r
-                r = b
-                b = t
-            bgra[row][col] = np.array([b, g, r, a], dtype=np.uint8)
+    bytecur = offset + i//(8//bpp)
+    if bpp <= 8:
+        bitshift = i % (8//bpp) * bpp
+        mask = ((bpp<<1)-1) << bitshift
+        d = pixel[3]
+        data[bytecur] |= (d<<bitshift) & mask
+    elif bpp==16:
+        data[bytecur: bytecur+2] = pixel[2:]
+    elif bpp >= 24:
+        n = 4 if bpp > 24 else 3
+        data[bytecur: bytecur+n] = pixel[:n]
+
+@njit([void(readonly(uint8, 1), int32, int32, int32, uint8[:])])
+def decode_pixel(data, bpp, offset, i, pixel):
+    """
+    decode data -> pixel
+    :param ndarray data: pixel buffer
+    :param int offset: start addr in data
+    :param int i: the i-th pixel
+    :param ndarray pixel: current pixel in rgba format
+    """
+
+    bytecur = offset + i//(8//bpp)
+    if bpp <= 8:
+        bitshift = i % (8//bpp) * bpp
+        mask = ((bpp<<1)-1) << bitshift
+        d = (data[bytecur] & mask) >> bitshift
+        pixel[3] = d
+    elif bpp == 16:
+        pixel[2:] = data[bytecur: bytecur+2]
+    elif bpp >= 24:
+        n = 4 if bpp > 24 else 3
+        pixel[:n] = data[bytecur: bytecur+n]
+
+@njit([(void)(uint8[:], int32, int32, int32, int32, 
+        readonly(uint8, 2), readonly(uint8, 3))], parallel=True)
+def encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img):
+    """
+    multi tiles -> implement
+    """
+    
+    h, w, c = img.shape[0], img.shape[1], img.shape[2]
+    n = tiledata.shape[0]//tilesize
+    for tileidx in prange(n):
+        for tiley in range(tileh):
+            for tilex in range(tilew): # to avoid raceing in encode <8bpp
+                stride_tile = w // tilew                  
+                x = (tileidx % stride_tile) * tilew + tilex
+                y = (tileidx // stride_tile) * tileh + tiley
+                addr = tileidx * tilesize
+                pixeli =  tiley * tilew + tilex
+                if palatte.shape[0] > 1:
+                    tmp = np.zeros(4, dtype=np.uint8)
+                    d = find_palatte(palatte, img[y][x])
+                    if tilebpp<=8: tmp[3] = d
+                    elif tilebpp==16: tmp[2], tmp[3] = d&0xff, d>>8
+                    encode_pixel(tiledata, tilebpp, addr, pixeli, tmp)
+                else:                    
+                    encode_pixel(tiledata, tilebpp, addr, pixeli, img[y][x])
+    
+@njit([(void)(readonly(uint8, 1), int32, int32, int32, int32, 
+        readonly(uint8, 2), uint8[:, :, :])], parallel=True)
+def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img):
+    """
+    img -> multi tiles implement
+    """
         
-        if flag: break
-    return bgra
+    h, w, c = img.shape[0], img.shape[1], img.shape[2]
+    n = tiledata.shape[0]//tilesize
+    for tileidx in prange(n):
+        for tiley in prange(tileh):
+            for tilex in prange(tilew):
+                stride_tile = w // tilew                  
+                x = (tileidx % stride_tile) * tilew + tilex
+                y = (tileidx // stride_tile) * tileh + tiley
+                addr = tileidx * tilesize
+                pixeli =  tiley * tilew + tilex
+                pixel = img[y][x]
+                decode_pixel(tiledata, tilebpp, addr, pixeli, pixel)
+                if palatte.shape[0] > 1: 
+                    d = pixel[3]
+                    if tilebpp==16: d = (d<<8) + pixel[2]
+                    pixel[:] = palatte[d]
 
-def bgra2raw(bgra, format="RGBA8888", *, compress_format="", is_bgr=False):
-    pixel_size = texture_size[format]
-    height, width, channal = bgra.shape
-    data = bytearray(height*width*pixel_size)
-    print(width, height, len(data))
-    for row in range(height):
-        for col in range(width):       
-            if channal == 4:
-                b, g, r, a = bgra[row][col].tolist()
-            else :
-                b, g, r = bgra[row][col].tolist()
-                a = 255
-            if is_bgr:
-                t = r
-                r = b
-                b = t
-            start = (row*width + col) * pixel_size
+#  wrappers for image convert
+def enocde_tile_image(img: np.ndarray, tile_info: Tuple[int, int, int, int], *, 
+        palatte: np.ndarray=None, n_tile=None, f_encode=encode_tiles) -> np.ndarray:
+    """
+    encode tile image wrapper
+    :param tile_info: (h, w, bpp, size)
+    :param tile_palatte: ndarray (n,4)
+    :param n_tile: the count of whole tiles
+    :param encode_tile: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    :return: img in rbga format
+    """
 
-            if format == "RGBA8888":
-                data[start:start+4] = struct.pack("<BBBB", r, g, b, a)
+    # init tile
+    imgw, imgh = img.shape[1], img.shape[0]
+    tileh, tilew, tilebpp, tilesize = tile_info
+    n =  imgw // tilew * imgh // tileh
+    if n_tile> 0: n = min(n, n_tile)
+    if not tilesize: tilesize = (tileh * tilew * tilebpp + 7)// 8
+    if palatte is None: palatte = np.zeros((1, 4), dtype=np.uint8)
+    tiledata = np.zeros(n*tilesize, dtype=np.uint8)
+    
+    # init image and decode
+    logging.info(f"image {img.shape} -> {n} tile {tilew}x{tileh} {tilebpp}bpp")
+    f_encode(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
 
-            elif format == "RGB332":
-                d = round(b * 3 /255) + (round(g * 7 /255)<<2) + (round(r * 7 /255)<<5)
-                data[start:start+1] = struct.pack("<B", d)
-            
-            elif format == "RGBA2222":
-                d = round(a * 3 /255) + (round(b * 3 /255)<<2) +  (round(g * 3 /255)<<4) + (round(r * 3 /255)<<6)
-                data[start:start+1] = struct.pack("<B", d)
-            
-            else: 
-                print(format + " is invalid !")
-                return None
-    return data
+    return tiledata
 
-def texture2picture(inpath, width, outpath="out.png", format="RGBA8888", *,compress_format="", is_bgr=False, f_before=None):
-    with open(inpath, "rb") as fp:
-        print(inpath + " opened!")
-        data = fp.read()
-        if f_before: data = f_before(data)
-        if format == "GRAY":
-            gray = raw2gray(data, width)
-            Image.fromarray(gray).save(outpath)
-        else:
-            bgra = raw2bgra(data, width, format=format,             
-                compress_format=compress_format, is_bgr = is_bgr)
-            Image.fromarray(bgra[:,:,[2,1,0,3]]).save(outpath)
-        print(outpath + "picture extracted!")
+def decode_tile_image(binobj: bytes, tile_info: Tuple[int, int, int, int], *, 
+        palatte: np.ndarray=None, n_tile=None, n_row=64, f_decode=decode_tiles) -> np.ndarray:
+    """
+    decode tile image wrapper
+    :param tile_info: (h, w, bpp, size)
+    :param tile_palatte: ndarray (n,4)
+    :param n_row: the count of tiles in a row
+    :param n_tile: the count of whole tiles
+    :param f_decode: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    :return: img in rbga format
+    """
 
-def picture2texture(inpath, outpath=r".\out.bin", format="RGBA8888", *, compress_format="", is_bgr=False, f_after=None):
-    if format == "GRAY":
-        gray = np.array(ImageOps.grayscale(Image.open(inpath)))
-        print(inpath + " loaded!")
-        data = gray2raw(gray)
-    else:
-        bgra = np.array(Image.open(inpath))[:,:, [2,1,0,3]]
-        print(inpath + " loaded!")
-        data = bgra2raw(bgra, format, compress_format=compress_format, is_bgr=is_bgr)
-    if f_after: data = f_after(data)
-    with open(outpath, "wb") as fp:
-        fp.write(data)
-        print(outpath + "texture generated!")
+    # init tile
+    tileh, tilew, tilebpp, tilesize = tile_info
+    n =  math.floor(len(binobj)*8/tilebpp/tileh/tilew)
+    if n_tile> 0: n = min(n, n_tile)
+    if not tilesize: tilesize = (tileh * tilew * tilebpp + 7)// 8
+    if palatte is None: palatte = np.zeros((1, 4), dtype=np.uint8)
+    if type(binobj) == np.ndarray: tiledata = binobj[:n*tilesize]
+    else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tilesize)
+    
+    # init image and decode
+    imgw, imgh = tilew * n_row, tileh * math.ceil(n/n_row)
+    img = np.zeros([imgh, imgw, 4], dtype='uint8')
+    logging.info(f"{n} tile {tilew}x{tileh} {tilebpp}bpp -> image {img.shape}")
+    f_decode(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+
+    return img
+
+def cli(cmdstr=None):
+    pass
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="texture tool v0.2.1, developed by devseed")
-    parser.add_argument('-b', '--build', action="store_true")
-    parser.add_argument("-f", "--format", type=str, default="RGBA8888")
-    parser.add_argument("-c", "--compress", type=str, default="")
-    parser.add_argument("-o", "--outpath", type=str, default=r".\out.png")
-    parser.add_argument("-w", "--width", type=int, default=2048)
-    parser.add_argument('--bgr', action="store_true")
-    parser.add_argument("inpath")
-    args = parser.parse_args()
-    if args.build:
-        picture2texture(args.inpath, outpath=args.outpath, format=args.format, compress_format=args.compress, is_bgr=args.bgr)
-    else:
-        texture2picture(args.inpath, args.width, outpath=args.outpath, format=args.format, compress_format=args.compress, is_bgr=args.bgr)
+    cli()
 
 """
 history:
-v0.1 initial version with RGBA8888， RGB332 convert
-v0.1.1 added BGR mode
-v0.2 add swizzle method
-v0.2.1 change cv2 to PIL.image
+v0.1, initial version with RGBA8888， RGB332 convert
+v0.1.1, added BGR mode
+v0.2, add swizzle method
+v0.2.1, change cv2 to PIL.image
+v0.3, remake with libutil v0.6, accelerate by numba parallel
 """

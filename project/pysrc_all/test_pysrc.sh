@@ -7,8 +7,6 @@ test_pysrc()
     echo ""
 }
 
-pushd ../..
 for file in `ls test/test_*.py`; do
     test_pysrc $file
 done
-popd

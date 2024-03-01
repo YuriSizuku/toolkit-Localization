@@ -1,6 +1,6 @@
 # LocalizationTool
 
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/yurisizuku/reversetool?color=green&label=LocalizationTool) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pyexe.yml?label=pyexe)  
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/YuriSizuku/LocalizationTool?label=LocalizationTool&color=green) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pyexe.yml?label=pyexe)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pysrc.yml?label=pysrc)  
 
 🍀 General localization tools for galgame, seperated from my [ReverseTool](https://github.com/YuriSizuku/ReverseTool)  
 See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for specific galgames.  
@@ -11,10 +11,10 @@ See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for spe
 
 * `libutil.py`, basic serilization functions for ftext and tbl  
 * `libtext.py`, for text exporting and importing, checking
-* `libfont.py`, for extracting, building tile font, or generating font picture.
 * `libimage.py`, something about texture and picture convert  
-* `libalg.py`, some matching and statistic method for text  
-* `ftextcvt.py`, convert the `ftext` format made by `bintext.py`  
+* `libfont.py`, for extracting, building tile font, or generating font picture.
+* `libword.py`, some matching and statistic method for text  
+* `ftextcvt.py`, convert the `ftext` format made by `libtext.py`  
 * `ftextpack.py`, method for packing `ftext` in a bin file with lower memory  
 
 ### windows platform libraries
@@ -23,58 +23,67 @@ See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for spe
 * `winfile.js` , view information for both `CreateFile`, `ReadFile`, `WriteFile`, `fopen`,`fread`, `fwrite`  
 * `winredirect.js`, redirect font, codepage, and paths in games  
 
+``` mermaid
+%%{init: {'theme':'forest'}}%%
+graph LR;
+l1[libutil.py]
+l2[libtext.py];
+l3[libimage.py]
+l4[libfont.py]
+l5[libword.py]
+t1[ftextcvt.py]
+t2[ftextpack.py]
+w1[winconsole.js]
+w2[winfile.js]
+w3[windirect.js]
+
+l1 --> l2 --> t2
+l1 --> l5  
+l1 --> l4
+l2 --> t1
+l1 --> l3 --> l4
+w1 --- w2 --- w3
+```
+
 ## CLI Example
 
-Using ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`
-For these examples, you need `mkdir -p project/pyexe_bintext/build` before.  
+We use ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`.  
 
-### bintext
+Install these libraries if you want to use python script.  
 
-You can also replace `python src/libtext.py` with `cbintext.exe` in command line.  
+```shell
+python -m pip install python-docx # ftextcvt
+python -m pip install numpy numba pillow # libfont, libimage
+python -m pip install scikit-learn # libimage, for kmeans method
+```
+
+See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).  
 
 ```shell
 
 # insert ftext (save direct or in gz file)
-python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pyexe_bintext/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
-python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pyexe_bintext/build/COM001_rebuild.bin.gz --log_level info
+python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
+python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin.gz --log_level info
 
 # extract ftext from bin file (save direct or in zip file)
-python src/libtext.py extract project/pyexe_bintext/build/COM001_rebuild.bin -o project/pyexe_bintext/build/COM001_rebuild.txt --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
-python src/libtext.py extract project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+python src/libtext.py extract project/pysrc_all/build/COM001_rebuild.bin -o "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
 
 # check ftext (direct or in zip file)
-python src/libtext.py check project/pyexe_bintext/build/COM001_rebuild.txt --refer project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001_rebuild_check.txt" --log_level info -e sjis
-python src/libtext.py check "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pyexe_bintext/build/COM001_rebuild.bin -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
-```
-
-### ftextpack
-
-```shell
-# pack both of origin and new text in fp01 file
-python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.fp01 -t test/sample/COM001.tbl --pack_org
+python src/libtext.py check "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all/build/COM001_rebuild.bin -o "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
 
 # pack compact mode in zip file
-python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pyexe_bintext/build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
+python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all/build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
+
+# json convert
+python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001.json
+python src/ftextcvt.py project/pysrc_all/build/COM001.json -o project/pysrc_all/build/COM001.json.txt
 ```
 
-### ftextcvt
+Use these scripts to testing
 
-``` shell
-# json convert
-python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.json
-python src/ftextcvt.py project/pyexe_bintext/build/COM001.json -o project/pyexe_bintext/build/COM001.json.txt
-
-# csv convert
-python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.csv
-python src/ftextcvt.py project/pyexe_bintext/build/COM001.csv -o project/pyexe_bintext/build/COM001.csv.txt
-
-# docx convert
-python src/ftextcvt.py test/sample/COM001.txt -o project/pyexe_bintext/build/COM001.docx
-python src/ftextcvt.py project/pyexe_bintext/build/COM001.docx -o project/pyexe_bintext/build/COM001.docx.txt
-
-# pretty ftext format
-python src/ftextcvt.py project/pyexe_bintext/build/COM001.json.txt -o project/pyexe_bintext/build/COM001.json.txt
-
+```shell
+sh project/pysrc_all/test_pysrc.sh
+sh -c "source project/pysrc_all/test_pycli.sh && test_all"
 ```
 
 ## File Formats
@@ -129,51 +138,17 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 212F=¨
 ```
 
+## Roadmap
+
+* [x] seperate Localizetion Tool from ReverseTool Repo  
+* [x] make unit test and cli test script
+* [x] write documentation about the project, such as format and cli example  
+* [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, see [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
+* [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
+* [ ] remake `libimage.py`, `libfont.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.1beta)
+* [ ] remake `libword.py`, [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
+* [ ] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
+
 ## History
 
-* `binary_text.py` -> `bintext.py` -> `libbintext.py` -> `libtext.py`  
-
-``` python
-v0.1, initial version with utf-8 support
-v0.2, added tbl and decodetbl, encodetbl, check with tbl
-v0.3, added extractsjis, extract by tbl or arbitary extract implement, patch using tbl
-v0.3.1, added punctuation cjk, added try in decode
-v0.3.2, fixed patched error when short than origin 
-v0.3.3, change the merge function with matching "●(.*)●[ ](.*)"
-v0.4, add read_format_text, write_format_text, optimize the code structure
-v0.4.1, fixed merge_text in this optimized the code structure
-v0.4.2, remove useless callbacks, adjust default len, add arbitary encoding, add jump_table rebuild, 
-v0.4.3, change the structure, write_format_text, read_format_text added line_texts mode
-v0.4.4, adding padding char if text shorter than origin (in order with \x0d, \x0a, zeros will stop str), 
-v0.4.5, fix the padding problem, --padding bytes 32 00
-v0.5, add verify text, shift addr function
-v0.5.1, fix the problem of other encoding tbl; read_format_text regex in lazy mode.
-v0.5.2, add replace_map in patch_text
-v0.5.3, add serach replace text mode by --search_file
-v0.5.4, add extraxt --start, --end parameter
-v0.5.5, add extract_unicode for 0x2 aligned unicode
-v0.5.6, add typing hint and prepare read lines for pyscript in web
-v0.5.7, add repalced map in check method, fix -e in check 
-v0.5.8, add f_extension for {{}}, f_adjust in patch_text, and align for patch
-v0.6, remake to increase speed and simplify functions
-```
-
-* `futil.py` -> `libfont.py`
-* `texture.py` -> `libtexture.py` -> `libimage.py`
-* `text.py` -> `librawtext.py` -> `libscenario.py` -> `libalg.py`  
-
-* `ftextpack.py`
-
-```shell
-v0.1, initial version with data.fp01
-v0.1.1, add allow_compat for smaller memory use
-v0.2, remake according to libtext v0.6
-```
-
-* `ftextcvt.py`
-
-```shell
-v0.1, initial version with formatftext, docx2ftext, ftext2docx
-v0.2, add support for csv and json, compatiable with paratranz.cn
-v0.3, remake according to libtext v0.6
-```
+See [History](project/pysrc_all/History.md).  

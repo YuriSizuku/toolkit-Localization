@@ -16,15 +16,20 @@ jobs:
 
     - name: make enviroment
       run: |
-        pip install python-docx pillow numpy numba
+        sudo apt-get update && sudo apt-get install p7zip-full
+        pip install python-docx # ftextcvt
+        pip install numpy numba pillow
+        pip install scikit-learn
 
     - name: test pysrc
       run: |
-        cd project/pysrc_all && chmod +x *.sh && ./test_pysrc.sh
+        chmod +x project/pysrc_all/*.sh
+        bash project/pysrc_all/test_pysrc.sh
 
     - name: test pycli
       run: |
-        cd project/pysrc_all && chmod +x *.sh && ./test_pycli.sh
+        chmod +x project/pysrc_all/*.sh
+        source project/pysrc_all/test_pycli.sh && test_all
 
   build_pysrc:
     runs-on: ubuntu-22.04
@@ -36,7 +41,9 @@ jobs:
     - name: make enviroment
       run: |
         sudo apt-get update && sudo apt-get install p7zip-full
-        pip install python-docx pillow numpy numba
+        pip install python-docx # ftextcvt
+        pip install numpy numba pillow
+        pip install scikit-learn
     
     - name: build pysrc
       run: |

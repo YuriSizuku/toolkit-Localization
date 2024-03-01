@@ -6,7 +6,7 @@ from common import *
 import libutil as util
 
 class TestTbl(unittest.TestCase):
-    def test_com001(self):
+    def test_file_com001(self):
         with codecs.open(paths_tbl["COM001"], 'r', 'utf-8') as fp: 
             lines1 = fp.readlines()
         tbl = util.load_tbl(lines1)
@@ -14,7 +14,7 @@ class TestTbl(unittest.TestCase):
         assert_lines(self, lines1, lines2)
 
 class TestFtext(unittest.TestCase):
-    def test_com001(self):
+    def test_file_com001(self):
         with codecs.open(paths_ftext["COM001"], 'r', 'utf-8') as fp: 
             lines1 = fp.readlines()
         ftexs1, ftexs2 = util.load_ftext(lines1)

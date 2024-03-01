@@ -4,9 +4,9 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), r"src"))
 sys.path.append(os.path.join(os.path.dirname(__file__), r"../src"))
 
-paths_bin = {'COM001': "test/sample/COM001"}
+paths_bin = {'COM001': "test/sample/COM001", "it": "test/sample/it.bin"}
 paths_tbl = {'COM001': "test/sample/COM001.tbl"}
-paths_ftext = {'COM001': "test/sample/COM001.txt"} 
+paths_ftext = {'COM001': "test/sample/COM001.txt"}
 
 def assert_lines(self, lines1, lines2, ignore_len=2):
     lines1 = list(filter(lambda x: len(x) > ignore_len, lines1))

@@ -7,6 +7,7 @@ A binary text tool (remake) for text exporting, importing and checking
 import logging
 import argparse
 from io import StringIO, BytesIO
+from functools import lru_cache
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
@@ -43,6 +44,7 @@ def istext(data: bytes, encoding="utf-8") -> bool:
     except UnicodeDecodeError: return False
     else: return True
 
+@lru_cache(64)
 def padding(n, bytes_padding: bytes) -> bytes:
     l1 = n //len(bytes_padding)
     l2 = n % len(bytes_padding)
@@ -55,9 +57,13 @@ def find_tbl(v: Union[str, bytes], tbl: List[tbl_t]):
         find_tbl.tcharmap = dict((t.tchar, i) for i, t in enumerate(tbl))
 
     tcodemap, tcharmap = find_tbl.tcodemap, find_tbl.tcharmap
-    if type(v) == str: return v in tcharmap
-    elif type(v) == bytes: return v in tcodemap
-    else: return None
+    idx = -1
+    try:
+        if type(v) == str: idx = tcharmap[v]
+        elif type(v) == bytes: idx = tcodemap[v]
+    except KeyError: 
+        return -1
+    return idx
 
 def encode_tbl(text: str, tbl: List[tbl_t], bytes_fallback: bytes=None) -> bytes:
     """
@@ -159,7 +165,7 @@ def encode_extend(text: str, enc: Union[str, List[tbl_t]]='utf-8',
     for t in split_extend(text, text_noeval):
         if type(t) == slice: 
             encbytes = encode_general(text[t], enc, enc_error)
-            if encbytes is None: raise ValueError(f"encode_extend encode failed, {text[t]}")
+            if encbytes is None: raise ValueError(f"encode failed [text='{text[t]}']")
             res += encbytes
         elif type(t) == bytes: res += t
     return res
@@ -238,7 +244,7 @@ def detect_text_tbl(data, tbl: List[tbl_t], min_len=2) -> Tuple[List[int], List[
         flag_find = False
         for j in range(1, lead_max + 1):
             if i + j > n: break
-            if find_tbl(bytes(data[i: i+j]), tbl):
+            if find_tbl(bytes(data[i: i+j]), tbl) >= 0:
                 if start==-1: start=i
                 flag_find = True
                 i += j
@@ -374,7 +380,7 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
     logging.info(f"finish extract {len(ftexts)} ftexts")
     return ftexts
 
-@loadfiles([0, (1, 'utf-8'), "referobj"])
+@loadfiles([0, (1, 'utf-8', 'ignore', False), "referobj"])
 def insert_ftexts(binobj: Union[str, bytes], 
         ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], 
         outpath=None, encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
