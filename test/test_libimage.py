@@ -5,6 +5,7 @@ import numpy as np
 
 from common import *
 import libimage
+import libutil
 
 class TestIndexPattern(unittest.TestCase):
     def test_example_siwzzle1(self):
@@ -18,9 +19,6 @@ class TestIndexPattern(unittest.TestCase):
         self.assertEqual(res[3, 3], 23)
         self.assertEqual(res[-1, -1], -1)
         
-    def test_linearpalatte(self):
-        pass
-
 class TestTileImage(unittest.TestCase):
     def test_file_it(self):
         with open(paths_bin["it"], 'rb') as fp:
@@ -33,26 +31,26 @@ class TestTileImage(unittest.TestCase):
             [0xFF, 0xFF, 0xFF, 0xFF]
         ], dtype=np.uint8)
         n_tile = 3561
-        tile_info = (18, 20, 2, (20*18)//4+2)
-        datasize = n_tile*tile_info[3]
+        tile = libutil.tile_t(20, 18, 2, (20*18)//4+2)
+        datasize = n_tile*tile.bpp
         
         # test encode decode without palatte
         for i in range(1):
             start = time.time()
-            img = libimage.decode_tile_image(data, tile_info=tile_info, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile_info}")
+            img = libimage.decode_tile_image(data, tile=tile, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile}")
             start = time.time()
-            data2 =libimage.encode_tile_image(img, tile_info=tile_info, n_tile=n_tile)
+            data2 =libimage.encode_tile_image(img, tile=tile, n_tile=n_tile)
             self.assertTrue(np.array_equal(data[:datasize], data2[:datasize]))
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile_info}")
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile}")
 
             # test encode decode with palatte
             start = time.time()
-            img = libimage.decode_tile_image(data, tile_info=tile_info, palatte=palatte, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile_info} (with palatte)")
+            img = libimage.decode_tile_image(data, tile=tile, palatte=palatte, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile} (with palatte)")
             start = time.time()
-            data2 =libimage.encode_tile_image(img, tile_info=tile_info, palatte=palatte, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile_info} (with palatte)")
+            data2 =libimage.encode_tile_image(img, tile=tile, palatte=palatte, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile} (with palatte)")
             self.assertTrue(np.array_equal(data[:datasize], data2[:datasize]))
             # Image.fromarray(img).save("project/pyexe_libtext/build/it.png")
 
@@ -65,10 +63,10 @@ class TestPalatteImage(unittest.TestCase):
             for x in range(img1.shape[1]):
                 img1[y][x][3] = (y + x) % 16
         
-        img2 = libimage.decode_palatte(img1, palatte)
+        img2 = libimage.decode_alpha_palatte(img1, palatte)
         palatte2 = libimage.quantize_palatte(img2, 4)
         self.assertTrue(np.array_equal(palatte, palatte2))
-        img3 = libimage.encode_palatte(img2, palatte)
+        img3 = libimage.encode_alpha_palatte(img2, palatte)
         self.assertEqual(img1.shape,  img3.shape)
         self.assertTrue(np.array_equal(img1[..., 3], img3[..., 3]))
 

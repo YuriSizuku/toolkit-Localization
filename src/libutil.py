@@ -165,6 +165,13 @@ class jtable_t: # jump table
     toaddr_new: int = 0
 
 @dataclass
+class tile_t:
+    w: int
+    h: int
+    bpp: int = 0
+    size: int = 0
+
+@dataclass
 class msg_t:
     id: int = 0
     msg: str = ""

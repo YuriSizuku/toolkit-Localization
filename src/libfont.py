@@ -9,7 +9,7 @@ import copy
 import struct
 import logging
 from io import BytesIO
-from typing import Union, Tuple, List, Dict, Set
+from typing import Callable, Union, Tuple, List, Dict, Set
 
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
@@ -17,9 +17,9 @@ from PIL import ImageFont, ImageDraw, Image
 __version__ = 300
 
 try:
-    from libutil import tbl_t, load_tbl, filter_loadfiles
+    from libutil import tile_t, tbl_t, savebytes, filter_loadfiles, load_tbl
 except ImportError:
-    exec("from libutil_v600 import tbl_t, load_tbl, filter_loadfiles")
+    exec("from libutil_v600 import tile_t, tbl_t, load_tbl, filter_loadfiles")
 
 # tbl generations
 def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -> List[tbl_t]: 
@@ -179,14 +179,73 @@ def rebuild_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
     return tbl3
 
 # font manipulate
+def encode_index_palatte(img: np.ndarray, palatte: np.ndarray) -> np.ndarray:
+    """
+    palatte (n, 4), img (h, w, 4) -> index(h, w)
+    """
+
+    DIS = 0x7FFFFFFF * np.ones(img.shape[:2], np.uint32)
+    IDX = np.zeros(img.shape[:2], np.uint32)
+    for i in range(palatte.shape[0]):
+        TDIS = np.linalg.norm(img - palatte[i], 1, axis=-1) # (h, w)
+        IDX[...] = i *(TDIS < DIS) + IDX * (TDIS >= DIS)
+        DIS[...] = TDIS *(TDIS < DIS) + DIS * (TDIS >= DIS)
+    return IDX
+
+def decode_index_palatte(index: np.ndarray, palatte: np.ndarray) -> np.ndarray:
+    """
+    palatte (n, 4), index(h, w) -> img(h, w, 4)
+    """
+
+    return palatte[index, :]
+
+def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte: np.ndarray, img: np.ndarray):
+    h, w = img.shape[0], img.shape[1]
+    datasize = h * w * tilebpp // 8
+    if tilebpp >= 24:
+        tiledata[:datasize] = img[..., :tilebpp//8].ravel()
+    else:
+        if palatte is not None: IDX = encode_index_palatte(img, palatte)
+        else: IDX = img[..., 3].astype(np.uint16) / 255 * 2**tilebpp
+        if tilebpp <= 8:
+            n = 8//tilebpp
+            RADIX = np.power(2, np.arange(n, dtype=np.uint8)*tilebpp)
+            tiledata[:datasize] = np.sum(IDX.reshape((-1, n)) * RADIX, -1)
+        elif tilebpp==16:
+            tiledata[:datasize] = IDX.ravel()
+
+def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte: np.ndarray, img: np.ndarray):  
+    h, w = tilew, tileh
+    datasize = h * w * tilebpp // 8
+    if tilebpp <= 16:
+        if tilebpp <= 8:
+            n = 8//tilebpp # 2bpp, 4 index extend in 1bytes
+            X, Y = np.meshgrid(np.arange(tileh, dtype=np.uint32), np.arange(tilew, dtype=np.uint32))
+            POS = Y * tilew + X # (h, w)
+            SHIFT = (POS % n) * tilebpp
+            MASK = ((1<<tilebpp)-1) << SHIFT
+            IDX = (tiledata[POS//n] & MASK) >> SHIFT # (h, w)
+        elif tilebpp==16:
+            IDX = tiledata.view(np.uint16)
+        if palatte is None:                 
+            R = G = B = 255 * np.ones((h, w), dtype=np.uint8)
+            A = IDX * 255 // (2**tilebpp -1)
+            PIXEL = np.column_stack([R, G, B, A])
+        else: 
+            PIXEL = decode_index_palatte(IDX, palatte)
+        img [:] = PIXEL
+    elif tilebpp >= 24:
+        n = tilebpp//8
+        img[..., :n] = tiledata[:datasize].reshape((h, w, n))
+
 @filter_loadfiles(1)
-def render_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
-        glphy_shape: Tuple, outpath=None, *, n_row=64, n_render=3, 
+def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
+        tile: tile_t, outpath=None, *, n_row=64, n_render=3, 
         render_size=0, render_shift=(0, 0)) -> np.ndarray:
     """
     :param tblobj: tbl path or tbl object
     :param ttfobj: ttf font path or bytes
-    :param glphy_shape: (glphyh, glphyw) 
+    :param tile: (w, h) 
     :param n_row: how many glphy in a row
     :param n_render: render multi times to increase brightness
     :param render_size: font size in each render glphy
@@ -196,21 +255,20 @@ def render_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     
     tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
     n_glphy = len(tbl)
-    glphyw, glphyh = glphy_shape
-    w = n_row*glphyw
-    h = math.ceil(n_glphy/n_row)*glphyh
+    w = n_row*tile.w
+    h = math.ceil(n_glphy/n_row)*tile.h
     img = np.zeros((h, w, 4), dtype=np.uint8)
-    logging.info(f"render font to image {w}X{h}, with {n_glphy} glphys")
+    logging.info(f"render font to image ({w}X{h}), {n_glphy} glphys {tile.w}x{tile.h}")
     
-    if render_size==0: render_size=min(glphyw, glphyh)
+    if render_size==0: render_size=min(tile.w, tile.h)
     font = ImageFont.truetype(BytesIO(ttfobj), render_size)
-    imgpil = Image.fromarray(img)
-    imgpil.readonly = False # this to make share the memory
-    draw = ImageDraw.Draw(imgpil)
+    pil = Image.fromarray(img)
+    pil.readonly = False # this to make share the memory
+    draw = ImageDraw.Draw(pil)
 
     for i, t in enumerate(tbl):
-        x = render_shift[0] + (i%n_row)*glphyw
-        y = render_shift[1] + (i//n_row)*glphyh 
+        x = render_shift[0] + (i%n_row)*tile.w
+        y = render_shift[1] + (i//n_row)*tile.h 
         draw.text((x,y), t.tchar, fill=(255,255,255,255), font=font, align="center")
     if n_render > 1: # alpha blending for overlap
         alpha = img[..., 3].astype(np.float32)/255.0
@@ -218,14 +276,51 @@ def render_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
             alpha = alpha + (1-alpha)*alpha
         img[..., 3] = (alpha*255).astype(np.uint8)
 
-    if outpath: imgpil.save(outpath)
+    if outpath: pil.save(outpath)
     return img
 
-def dump_font(tblobj, imgobj, glphy_shape, outpath=None) -> List[np.ndarray]:
+@filter_loadfiles(1)
+def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
+        tile: tile_t, outpath=None, *, n_render=3, render_size=0, render_shift=(0, 0), 
+        f_encode: Callable=encode_glphy) -> np.ndarray:
     """
-    dump font to see the alignment of tbl
+    :param tblobj: tbl path or tbl object
+    :param ttfobj: ttf font path or bytes
+    :param tile: (h, w, bpp, size) 
+    :param n_row: how many glphy in a row
+    :param n_render: render multi times to increase brightness
+    :param render_size: font size in each render glphy
+    :param render_shift: (x, y) in each render glphy
+    :param f_encode: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    :return: img
     """
-    pass
+    
+    tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
+    n_glphy = len(tbl)
+    tile.size = tile.h*tile.w*tile.bpp//8
+    logging.info(f"render font to {n_glphy} {tile} glphys")
+    
+    if render_size==0: render_size=min(tile.w, tile.h)
+    font = ImageFont.truetype(BytesIO(ttfobj), render_size)
+    tileimg = np.zeros([tile.h, tile.w, 4], dtype=np.uint8)
+    tiledata = np.zeros(n_glphy*tile.size, dtype=np.uint8)
+    pil = Image.fromarray(tileimg)
+    pil.readonly = False
+    draw = ImageDraw.Draw(pil)
+
+    for i, t in enumerate(tbl):
+        draw.text((render_shift[0],render_shift[1]), 
+            t.tchar, fill=(255,255,255,255), font=font, align="center")
+        if n_render > 1: # alpha blending for overlap
+            alpha = tileimg[..., 3].astype(np.float32)/255.0
+            for _ in range(n_render-1): 
+                alpha = alpha + (1-alpha)*alpha
+            tileimg[..., 3] = (alpha*255).astype(np.uint8)
+        f_encode(tiledata[i*tile.size: (i+1)*tile.size], 
+                    tile.size, tile.w, tile.h, tile.bpp, None, tileimg)
+        tileimg.fill(0)
+    if outpath: savebytes(outpath, tiledata)
+    return tiledata
 
 if __name__ == "__main__":
     pass

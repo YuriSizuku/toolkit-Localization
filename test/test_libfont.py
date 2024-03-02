@@ -1,9 +1,10 @@
 import sys
 import logging
 import unittest
+import numpy as np
 
 from common import *
-from libutil import tbl_t, save_tbl
+from libutil import tbl_t, tile_t, save_tbl
 import libfont
 
 class TestGenerateTbl(unittest.TestCase):
@@ -79,13 +80,47 @@ class TestManipulateTbl(unittest.TestCase):
         self.assertEqual(len(lines), len(tbl1))
 
 class TesttManipulateFont(unittest.TestCase):
-    def test_example_renderfont(self):
+    def test_example_glphy4(self):
+        tile = tile_t(10, 10, 4, 10*10//2)
+        tmp = np.linspace(0, 0xff, 2**tile.bpp, dtype=np.uint8).transpose()
+        palatte = np.column_stack([tmp, tmp, tmp, tmp])
+        
+        # test palatte decode encode
+        idx1 = np.zeros([tile.h, tile.w], dtype=np.uint8)
+        for y in range(idx1.shape[0]):
+            for x in range(idx1.shape[1]):
+                idx1[y][x] = (y + x) % 16
+        img1 = libfont.decode_index_palatte(idx1, palatte)
+        idx2 = libfont.encode_index_palatte(img1, palatte)
+        self.assertTrue(np.array_equal(idx1, idx2))
+        
+        # test glphy decode encode
+        img2 = np.zeros_like(img1)
+        tiledata = np.zeros(idx1.shape[0] * idx1.shape[1] * tile.bpp // 8, dtype=np.uint8)
+        libfont.encode_glphy(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img1)
+        self.assertGreater(tiledata.max(), 0)
+        for i in range(tiledata.shape[0]):
+            v = idx1.ravel()
+            d = v[2*i] + (v[2*i+1]<<tile.bpp)
+            self.assertEqual(tiledata[i], d)
+        libfont.decode_glphy(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img2)
+        self.assertTrue(np.array_equal(img1, img2))
+
+    def test_example_renderimagefont(self):
         if sys.platform != "win32": return
         outpath = None
-        img = libfont.render_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
-                outpath=outpath, glphy_shape=(24, 24), render_size=24)
+        img = libfont.make_image_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
+                tile=tile_t(24, 24), outpath=outpath, render_size=24)
         self.assertGreater(img.max(), 0)
         self.assertEqual(img.min(), 0)
+
+    def test_example_rendertilefont(self):
+        if sys.platform != "win32": return
+        outpath = None
+        tiledata = libfont.make_tile_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
+                tile=tile_t(24, 24, 4), outpath=outpath, render_size=24)
+        self.assertGreater(tiledata.max(), 0)
+        self.assertEqual(tiledata.min(), 0)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(funcName)s: %(message)s")

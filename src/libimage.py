@@ -15,9 +15,9 @@ from numba import njit, prange, void, uint8, int32
 readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
 
 try:
-    from libutil import filter_loadfiles, filter_loadimages
+    from libutil import tile_t, filter_loadfiles, filter_loadimages
 except ImportError:
-    exec("from libutil_v600 import filter_loadfiles, filter_loadimages")
+    exec("from libutil_v600 import tile_t, filter_loadfiles, filter_loadimages")
 
 __version__ = 300
 
@@ -101,9 +101,10 @@ def find_palatte(palatte, pixel):
     return idx
 
 @njit([(uint8[:, :, :])(readonly(uint8, 3),readonly(uint8, 2))], parallel=True)
-def encode_palatte(img: np.ndarray, palatte: np.ndarray)->np.ndarray:
+def encode_alpha_palatte(img: np.ndarray, palatte: np.ndarray) -> np.ndarray:
     """
     encode rgba to index with alpha channel
+    (h, w, 4) -> (h, w, 4)
     """
 
     img2 = np.zeros_like(img, dtype=img.dtype)
@@ -112,9 +113,10 @@ def encode_palatte(img: np.ndarray, palatte: np.ndarray)->np.ndarray:
             img2[y][x][3] = find_palatte(palatte, img[y][x])
     return img2
 
-def decode_palatte(img: np.ndarray, palatte: np.ndarray)->np.ndarray:
+def decode_alpha_palatte(img: np.ndarray, palatte: np.ndarray) -> np.ndarray:
     """
     decode index with alpha channel to rbga
+    (h, w, 4) -> (h, w, 4)
     """
 
     return palatte[img[:, :, 3]]
@@ -144,7 +146,7 @@ def encode_pixel(data, bpp, offset, i, pixel):
     bytecur = offset + i//(8//bpp)
     if bpp <= 8:
         bitshift = i % (8//bpp) * bpp
-        mask = ((bpp<<1)-1) << bitshift
+        mask = ((1<<bpp)-1) << bitshift
         d = pixel[3]
         data[bytecur] |= (d<<bitshift) & mask
     elif bpp==16:
@@ -166,7 +168,7 @@ def decode_pixel(data, bpp, offset, i, pixel):
     bytecur = offset + i//(8//bpp)
     if bpp <= 8:
         bitshift = i % (8//bpp) * bpp
-        mask = ((bpp<<1)-1) << bitshift
+        mask = ((1<<bpp)-1) << bitshift
         d = (data[bytecur] & mask) >> bitshift
         pixel[3] = d
     elif bpp == 16:
@@ -225,56 +227,54 @@ def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img):
                     pixel[:] = palatte[d]
 
 #  wrappers for image convert
-def encode_tile_image(img: np.ndarray, tile_info: Tuple[int, int, int, int], *, 
+def encode_tile_image(img: np.ndarray, tile: tile_t, *, 
         palatte: np.ndarray=None, n_tile=None) -> np.ndarray:
     """
     encode tile image wrapper
-    :param tile_info: (h, w, bpp, size)
-    :param tile_palatte: ndarray (n,4)
+    :param tile: (w, h, bpp, size)
+    :param palatte: ndarray (n,4)
     :param n_tile: the count of whole tiles
     :return: img in rbga format
     """
 
     # init tile
     imgw, imgh = img.shape[1], img.shape[0]
-    tileh, tilew, tilebpp, tilesize = tile_info
-    n =  imgw // tilew * imgh // tileh
+    n =  imgw // tile.w * imgh // tile.h
     if n_tile> 0: n = min(n, n_tile)
-    if not tilesize: tilesize = (tileh * tilew * tilebpp + 7)// 8
+    if tile.size <=0: tile.size = (tile.h * tile.w * tile.bpp + 7)// 8
     if palatte is None: palatte = np.zeros((1, 4), dtype=np.uint8)
-    tiledata = np.zeros(n*tilesize, dtype=np.uint8)
+    tiledata = np.zeros(n*tile.size, dtype=np.uint8)
     
     # init image and decode
-    logging.info(f"image {img.shape} -> {n} tile {tilew}x{tileh} {tilebpp}bpp")
-    encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    logging.info(f"image {img.shape} -> {n} tile {tile.w}x{tile.h} {tile.bpp}bpp")
+    encode_tiles(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img)
 
     return tiledata
 
-def decode_tile_image(binobj: bytes, tile_info: Tuple[int, int, int, int], *, 
+def decode_tile_image(binobj: bytes, tile: tile_t, *, 
         palatte: np.ndarray=None, n_tile=None, n_row=64) -> np.ndarray:
     """
     decode tile image wrapper
-    :param tile_info: (h, w, bpp, size)
-    :param tile_palatte: ndarray (n,4)
+    :param tile: (w, h, bpp, size)
+    :param palatte: ndarray (n,4)
     :param n_row: the count of tiles in a row
     :param n_tile: the count of whole tiles
     :return: img in rbga format
     """
 
     # init tile
-    tileh, tilew, tilebpp, tilesize = tile_info
-    n =  math.floor(len(binobj)*8/tilebpp/tileh/tilew)
+    n =  math.floor(len(binobj)*8/tile.bpp/tile.h/tile.w)
     if n_tile> 0: n = min(n, n_tile)
-    if not tilesize: tilesize = (tileh * tilew * tilebpp + 7)// 8
+    if tile.size <=0: tile.size = (tile.h * tile.w * tile.bpp + 7)// 8
     if palatte is None: palatte = np.zeros((1, 4), dtype=np.uint8)
-    if type(binobj) == np.ndarray: tiledata = binobj[:n*tilesize]
-    else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tilesize)
+    if type(binobj) == np.ndarray: tiledata = binobj[:n*tile.size]
+    else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tile.size)
     
     # init image and decode
-    imgw, imgh = tilew * n_row, tileh * math.ceil(n/n_row)
+    imgw, imgh = tile.w * n_row, tile.h * math.ceil(n/n_row)
     img = np.zeros([imgh, imgw, 4], dtype='uint8')
-    logging.info(f"{n} tile {tilew}x{tileh} {tilebpp}bpp -> image {img.shape}")
-    decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    logging.info(f"{n} tile {tile.w}x{tile.h} {tile.bpp}bpp -> image {img.shape}")
+    decode_tiles(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img)
 
     return img
 
