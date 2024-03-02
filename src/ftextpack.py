@@ -18,10 +18,10 @@ from dataclasses import dataclass, field
 from typing import Callable, List
 
 try:
-    from libutil import savebytes, loadfiles, ftext_t, load_ftext, load_tbl
+    from libutil import savebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl
     from libtext import encode_extend
 except ImportError:
-    exec("from libutil_v600 import savebytes, loadfiles, ftext_t, load_ftext, load_tbl")
+    exec("from libutil_v600 import savebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl")
     exec("from libtext_v600 import encode_extend")
 
 __version__ = 200
@@ -96,7 +96,7 @@ def pack_ftexts(binobjs, ftextobjs,
         bufio.write(b'\x00')
         return textinfo
     
-    @loadfiles([1])
+    @filter_loadfiles([1])
     def _load_pair(ftextobj, binobj) -> List[ftextpack_info_t]:
         ftexts1, ftexts2 = load_ftext(ftextobj) if type(ftextobj) != tuple else ftextobj
         logging.info(f"load {repr(ftextobj)} with {len(ftexts1)} texts")

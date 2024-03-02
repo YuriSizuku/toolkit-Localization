@@ -1,13 +1,10 @@
-import time
+import sys
 import logging
 import unittest
-import numpy as np
-from PIL import Image
 
 from common import *
 from libutil import tbl_t, save_tbl
 import libfont
-import libimage
 
 class TestGenerateTbl(unittest.TestCase):
     def test_example_tbl932(self):
@@ -83,9 +80,12 @@ class TestManipulateTbl(unittest.TestCase):
 
 class TesttManipulateFont(unittest.TestCase):
     def test_example_renderfont(self):
-        imgpil = libfont.render_font(paths_tbl["COM001"], 
-                    r"C:\Windows\Fonts\simhei.ttf", glphy_shape=(24, 24), pt=24)
-        self.assertIsNotNone(imgpil)
+        if sys.platform != "win32": return
+        outpath = None
+        img = libfont.render_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
+                outpath=outpath, glphy_shape=(24, 24), render_size=24)
+        self.assertGreater(img.max(), 0)
+        self.assertEqual(img.min(), 0)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(funcName)s: %(message)s")

@@ -12,6 +12,11 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Union, List, Tuple
 
+try: # optional libraries to import
+    import numpy as np
+    from PIL import Image
+except ImportError: pass
+
 __version__  = 600
 
 # util functions
@@ -87,7 +92,13 @@ def savebytes(path, data) -> int:
     elif ".zip>" in path: return save_zip(path, data)
     else: return save_direct(path, data)
 
-def loadfiles(targets: Union[int, str, List]=None):
+def loadimage(inobj, img_format="png", pixel_format="RGBA", palatte=None):
+    pass
+
+def saveimage(outobj, img, img_format="png", pixel_format="RGBA", palatte=None):
+    pass
+
+def filter_loadfiles(targets: Union[int, str, List]=None):
     """
     :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore'), 'k'], 
     """
@@ -107,6 +118,29 @@ def loadfiles(targets: Union[int, str, List]=None):
                 if w is None: continue # no target arg
                 data = loadbytes(w[t0])
                 w[t0] = readlines(data, *t1) if t1 else data
+            return func(*args, **kw)
+        return wrapper2
+    return wrapper1
+
+def filter_loadimages(targets: Union[int, str, List]=None):
+    """
+    :params targets: can be 0, 'k', [0], [(0, 'png', 'format', palatte), 'k'], 
+    """
+    
+    if targets == None: targets = [0]
+    if type(targets) != list:  targets = [targets]
+    
+    def wrapper1(func): # decorator(dec_args)(func)(fun_args)
+        def wrapper2(*_args, **kw):
+            args = list(_args)
+            for i, t in enumerate(targets):
+                w = None # for args or kw
+                t0 = t[0] if type(t)==tuple else t # for index
+                t1 = t[1:] if type(t)==tuple else None # for encoding, encoding_error
+                if type(t0)==int and type(args[t0])==str: w=args
+                elif type(t0)==str and t in kw and type(kw[t0]) == str: w=kw
+                if w is None: continue # no target arg
+                data = loadbytes(w[t0])
             return func(*args, **kw)
         return wrapper2
     return wrapper1
@@ -166,7 +200,7 @@ def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t],
 
     return lines 
 
-@loadfiles(0)
+@filter_loadfiles(0)
 def load_ftext(inobj: Union[str, List[str]], *, 
         encoding="utf-8") -> Tuple[List[ftext_t], List[ftext_t]]:
     """
@@ -206,7 +240,7 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
     if outpath: savebytes(outpath, writelines(lines, encoding))
     return lines
 
-@loadfiles(0)
+@filter_loadfiles(0)
 def load_tbl(inobj: Union[str, List[str]], *, encoding='utf-8') ->  List[tbl_t]:
     """
     tbl file format "tcode=tchar", 

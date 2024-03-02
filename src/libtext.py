@@ -11,9 +11,9 @@ from functools import lru_cache
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
-    from libutil import writelines, savebytes, loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
+    from libutil import writelines, savebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil_v600 import writelines, savebytes, loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
+    exec("from libutil_v600 import writelines, savebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
 
 __version__  = 600
 
@@ -336,7 +336,7 @@ def check_ftextlines(lines: List[str]) -> List[msg_t]:
 
     return msgs
 
-@loadfiles(0)
+@filter_loadfiles(0)
 def extract_ftexts(binobj: Union[str, bytes], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
         min_len=2, has_cjk=True, data_slice=None) -> List[ftext_t]:
@@ -380,7 +380,7 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
     logging.info(f"finish extract {len(ftexts)} ftexts")
     return ftexts
 
-@loadfiles([0, (1, 'utf-8', 'ignore', False), "referobj"])
+@filter_loadfiles([0, (1, 'utf-8', 'ignore', False), "referobj"])
 def insert_ftexts(binobj: Union[str, bytes], 
         ftextsobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], 
         outpath=None, encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
@@ -496,7 +496,7 @@ def insert_ftexts(binobj: Union[str, bytes],
     logging.info(f"finished with datasize 0x{len(srcdata):x}->0x{len(dstdata):x}")
     return dstdata
 
-@loadfiles([(0, 'utf-8', 'ignore'), "referobj"])
+@filter_loadfiles([(0, 'utf-8', 'ignore'), "referobj"])
 def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
         text_noeval=False, text_replace: Dict[bytes, bytes]=None,

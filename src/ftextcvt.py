@@ -15,13 +15,13 @@ from docx.shared import Pt
 from typing import Union, List, Dict
 
 try:
-    from libutil import writelines, savebytes, loadfiles, ftext_t, load_ftext, save_ftext
+    from libutil import writelines, savebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext
 except ImportError:
-    exec("from libutil_v600 import writelines, savebytes, loadfiles, ftext_t, load_ftext, save_ftext")
+    exec("from libutil_v600 import writelines, savebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
 
 __version__ = 300
 
-@loadfiles((0, 'utf-8'))
+@filter_loadfiles((0, 'utf-8'))
 def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
     """
     make ftext2 format pretty, and try to fix some problem
@@ -38,7 +38,7 @@ def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
             elif line[text_offset]!=" ": 
                 print(f"detect no ' ' [lineno={i} line='{line}']")
                 line = line[0: text_offset] + ' ' + line[text_offset:]
-        lines[i] =  line + '\n'
+        lines[i] = line
     return save_ftext(*load_ftext(lines), outpath)
 
 def ftext2csv(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
@@ -83,7 +83,7 @@ def ftext2json(ftextobj: Union[str, List[str]], outpath=None) -> List[str]:
     if outpath: savebytes(outpath, jstr.encode("utf-8"))
     return jstr.splitlines(True)
 
-@loadfiles([(0, "utf-8")])
+@filter_loadfiles([(0, "utf-8")])
 def ftext2docx(linesobj: Union[str, List[str]], outpath=None) -> Document:
     """
     if this function compiled by nuitka, 
@@ -102,7 +102,7 @@ def ftext2docx(linesobj: Union[str, List[str]], outpath=None) -> Document:
     if outpath: document.save(outpath)
     return document
 
-@loadfiles([(0, "utf-8")])
+@filter_loadfiles([(0, "utf-8")])
 def csv2ftext(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
     lines = linesobj
     if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff")
@@ -119,7 +119,7 @@ def csv2ftext(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
     assert(len(ftexts1) == len(ftexts2))
     return save_ftext(ftexts1, ftexts2, outpath)
 
-@loadfiles(0)
+@filter_loadfiles(0)
 def json2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
     ftexts1, ftexts2 = [], []
     for i, t in enumerate(json.loads(binobj)):

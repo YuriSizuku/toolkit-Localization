@@ -24,7 +24,7 @@ jobs:
     - name: test pysrc
       run: |
         chmod +x project/pysrc_all/*.sh
-        bash project/pysrc_all/test_pysrc.sh
+        bash project/pysrc_all/test_pyunit.sh
 
     - name: test pycli
       run: |
@@ -48,7 +48,9 @@ jobs:
     - name: build pysrc
       run: |
         cd project/pysrc_all 
-        chmod +x *.sh && bash ./build_pysrc.sh
+        chmod +x *.sh 
+        bash ./build_pysrc.sh
+        bash ./test_pydep.sh
         archive_name=LocalizationPytool_${{ github.ref_name }}
         7z a ${archive_name}.7z build
         7z rn ${archive_name}.7z build ${archive_name}

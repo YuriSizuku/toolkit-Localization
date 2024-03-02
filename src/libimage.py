@@ -12,8 +12,12 @@ from typing import Tuple
 import numba
 import numpy as np
 from numba import njit, prange, void, uint8, int32
-from sklearn.cluster import KMeans
 readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
+
+try:
+    from libutil import filter_loadfiles, filter_loadimages
+except ImportError:
+    exec("from libutil_v600 import filter_loadfiles, filter_loadimages")
 
 __version__ = 300
 
@@ -76,8 +80,6 @@ def make_linear_palatte(bpp):
     tmp = np.linspace(0, 0xff, n, dtype=np.uint8).transpose()
     return np.column_stack([tmp, tmp, tmp, tmp])
 
-texture_size = {"RGBA8888":4, "RGB5A1": 2, "RGB332":1, "RGBA2222":1}
-
 # method for image decode, encode methods, explicit declar makes numba faster
 @njit([uint8(readonly(uint8, 2), readonly(uint8, 1))])
 def find_palatte(palatte, pixel):
@@ -121,7 +123,7 @@ def quantize_palatte(img: np.ndarray, bpp) -> np.ndarray:
     """
     make palatte from img
     """
-
+    from sklearn.cluster import KMeans
     n = 2**bpp
     k = KMeans(n_clusters=n, n_init=10)
     k.fit(img.reshape([img.shape[0]*img.shape[1], img.shape[2]]))
@@ -191,13 +193,12 @@ def encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img):
                 addr = tileidx * tilesize
                 pixeli =  tiley * tilew + tilex
                 if palatte.shape[0] > 1:
-                    tmp = np.zeros(4, dtype=np.uint8)
+                    pixel = np.zeros(4, dtype=np.uint8)
                     d = find_palatte(palatte, img[y][x])
-                    if tilebpp<=8: tmp[3] = d
-                    elif tilebpp==16: tmp[2], tmp[3] = d&0xff, d>>8
-                    encode_pixel(tiledata, tilebpp, addr, pixeli, tmp)
-                else:                    
-                    encode_pixel(tiledata, tilebpp, addr, pixeli, img[y][x])
+                    if tilebpp<=8: pixel[3] = d
+                    elif tilebpp==16: pixel[2], pixel[3] = d&0xff, d>>8
+                else: pixel = img[y][x]
+                encode_pixel(tiledata, tilebpp, addr, pixeli, pixel)
     
 @njit([(void)(readonly(uint8, 1), int32, int32, int32, int32, 
         readonly(uint8, 2), uint8[:, :, :])], parallel=True)
@@ -224,14 +225,13 @@ def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img):
                     pixel[:] = palatte[d]
 
 #  wrappers for image convert
-def enocde_tile_image(img: np.ndarray, tile_info: Tuple[int, int, int, int], *, 
-        palatte: np.ndarray=None, n_tile=None, f_encode=encode_tiles) -> np.ndarray:
+def encode_tile_image(img: np.ndarray, tile_info: Tuple[int, int, int, int], *, 
+        palatte: np.ndarray=None, n_tile=None) -> np.ndarray:
     """
     encode tile image wrapper
     :param tile_info: (h, w, bpp, size)
     :param tile_palatte: ndarray (n,4)
     :param n_tile: the count of whole tiles
-    :param encode_tile: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
     :return: img in rbga format
     """
 
@@ -246,19 +246,18 @@ def enocde_tile_image(img: np.ndarray, tile_info: Tuple[int, int, int, int], *,
     
     # init image and decode
     logging.info(f"image {img.shape} -> {n} tile {tilew}x{tileh} {tilebpp}bpp")
-    f_encode(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
 
     return tiledata
 
 def decode_tile_image(binobj: bytes, tile_info: Tuple[int, int, int, int], *, 
-        palatte: np.ndarray=None, n_tile=None, n_row=64, f_decode=decode_tiles) -> np.ndarray:
+        palatte: np.ndarray=None, n_tile=None, n_row=64) -> np.ndarray:
     """
     decode tile image wrapper
     :param tile_info: (h, w, bpp, size)
     :param tile_palatte: ndarray (n,4)
     :param n_row: the count of tiles in a row
     :param n_tile: the count of whole tiles
-    :param f_decode: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
     :return: img in rbga format
     """
 
@@ -275,7 +274,7 @@ def decode_tile_image(binobj: bytes, tile_info: Tuple[int, int, int, int], *,
     imgw, imgh = tilew * n_row, tileh * math.ceil(n/n_row)
     img = np.zeros([imgh, imgw, 4], dtype='uint8')
     logging.info(f"{n} tile {tilew}x{tileh} {tilebpp}bpp -> image {img.shape}")
-    f_decode(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
 
     return img
 

@@ -17,13 +17,12 @@ from PIL import ImageFont, ImageDraw, Image
 __version__ = 300
 
 try:
-    from libutil import tbl_t, load_tbl, loadfiles
+    from libutil import tbl_t, load_tbl, filter_loadfiles
 except ImportError:
-    exec("from libutil_v600 import tbl_t, load_tbl loadfiles")
+    exec("from libutil_v600 import tbl_t, load_tbl, filter_loadfiles")
 
 # tbl generations
-def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -> List[tbl_t]:
-    
+def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -> List[tbl_t]: 
     def _process(high, low):
         tcode = struct.pack('<BB', high, low)
         try:
@@ -180,37 +179,57 @@ def rebuild_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
     return tbl3
 
 # font manipulate
-@loadfiles(1)
-def render_font(tblobj: Union[str, bytes], ttfobj: Union[str, bytes],
-        glphy_shape: Tuple, n_row=64, outpath=None, *, 
-        padding=(0,0,0,0), shift=(0, 0), pt=0) -> Image:
+@filter_loadfiles(1)
+def render_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
+        glphy_shape: Tuple, outpath=None, *, n_row=64, n_render=3, 
+        render_size=0, render_shift=(0, 0)) -> np.ndarray:
     """
-    :param tblpath: tblpath or tbl list
-    :param padding: (up, down, left, right)
-    :param shift: (x, y)
-    :return: pil.Image
+    :param tblobj: tbl path or tbl object
+    :param ttfobj: ttf font path or bytes
+    :param glphy_shape: (glphyh, glphyw) 
+    :param n_row: how many glphy in a row
+    :param n_render: render multi times to increase brightness
+    :param render_size: font size in each render glphy
+    :param render_shift: (x, y) in each render glphy
+    :return: img
     """
     
-    tbl = load_tbl(tblobj)
-    n = len(tbl)
+    tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
+    n_glphy = len(tbl)
     glphyw, glphyh = glphy_shape
-    w = padding[2] + n_row*glphyw + padding[3]
-    h = padding[0] + math.ceil(n/n_row)*glphyh + padding[1]
+    w = n_row*glphyw
+    h = math.ceil(n_glphy/n_row)*glphyh
     img = np.zeros((h, w, 4), dtype=np.uint8)
-    logging.info(f"render font to image {w}X{h}, with {n} glphys")
+    logging.info(f"render font to image {w}X{h}, with {n_glphy} glphys")
     
-    ptpxmap = {8:6, 9:7, 16:12, 18:14, 24:18, 32:24, 48:36}
-    if pt==0: pt=ptpxmap[glphyh]
-    font = ImageFont.truetype(BytesIO(ttfobj), pt)
+    if render_size==0: render_size=min(glphyw, glphyh)
+    font = ImageFont.truetype(BytesIO(ttfobj), render_size)
     imgpil = Image.fromarray(img)
+    imgpil.readonly = False # this to make share the memory
     draw = ImageDraw.Draw(imgpil)
 
     for i, t in enumerate(tbl):
-        x = padding[2] + shift[0] + (i%n_row)*glphyw
-        y = padding[0] + shift[1] + (i//n_row)*glphyh 
+        x = render_shift[0] + (i%n_row)*glphyw
+        y = render_shift[1] + (i//n_row)*glphyh 
         draw.text((x,y), t.tchar, fill=(255,255,255,255), font=font, align="center")
+    if n_render > 1: # alpha blending for overlap
+        alpha = img[..., 3].astype(np.float32)/255.0
+        for i in range(n_render-1): 
+            alpha = alpha + (1-alpha)*alpha
+        img[..., 3] = (alpha*255).astype(np.uint8)
+
     if outpath: imgpil.save(outpath)
-    return imgpil
+    return img
+
+def dump_font(tblobj, imgobj, glphy_shape, outpath=None) -> List[np.ndarray]:
+    """
+    dump font to see the alignment of tbl
+    """
+    pass
+
+if __name__ == "__main__":
+    pass
+
 
 """
 history:

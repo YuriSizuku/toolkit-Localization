@@ -145,8 +145,8 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] write documentation about the project, such as format and cli example  
 * [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, see [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
 * [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
-* [ ] remake `libimage.py`, `libfont.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.1beta)
-* [ ] remake `libword.py`, [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
+* [ ] remake `libimage.py`, `libfont.py`, use numba to improve performance, [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.1beta)
+* [ ] remake `libword.py`, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 * [ ] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 
 ## History
