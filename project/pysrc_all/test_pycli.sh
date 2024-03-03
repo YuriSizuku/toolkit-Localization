@@ -13,12 +13,22 @@ test_libtext()
     python src/libtext.py check "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
 }
 
-test_libimage()
+test_libfont()
 {
-    echo
+    # test tbl
+    python src/libfont.py tbl_make cp932 --tchar_replace "亜" "亚" -o "project/pysrc_all/build/sjis.tbl"
+    python src/libfont.py tbl_make cp932 --tcode_encoding "utf-8" -o "project/pysrc_all/build/sjis_utf8.tbl"
+    python src/libfont.py tbl_make cp936 -o "project/pysrc_all/build/gb2312.tbl"
+    python src/libfont.py tbl_align "project/pysrc_all/build/sjis.tbl" -o "project/pysrc_all/build/sjis_align.tbl" --gap_static --tbl_padding "ff" "x" --gap 0 2 --gap 2 -2
+    python src/libfont.py tbl_merge "project/pysrc_all/build/sjis.tbl" "project/pysrc_all/build/sjis_align.tbl" -o "project/pysrc_all/build/sjis_merge.tbl"
+    python src/libfont.py tbl_merge --intersect "project/pysrc_all/build/sjis.tbl" "project/pysrc_all/build/gb2312.tbl" -o "project/pysrc_all/build/sjis_gb2312_merge.tbl" --range_reserve 0 70
+
+    # test extract glphy
+    mkdir -p "project/pysrc_all/build/it"
+    python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize=92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 }
 
-test_libfont()
+test_libimage()
 {
     echo
 }
@@ -32,7 +42,7 @@ test_ftextpack()
 {
     echo "## test ftextpack"
     python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pysrc_all//build/COM001.fp01 -t test/sample/COM001.tbl --pack_org
-    python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all//build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
+    python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all//build/COM001.zip>COM001/COM001测试.fp01" -t test/sample/COM001.tbl --pack_compact
 }
 
 test_ftextcvt()

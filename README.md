@@ -59,8 +59,16 @@ python -m pip install scikit-learn # libimage, for kmeans method
 
 See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).  
 
-```shell
+Use these scripts to testing
 
+```shell
+sh project/pysrc_all/test_pyunit.sh
+sh -c "source project/pysrc_all/test_pycli.sh && test_all"
+```
+
+### libtext
+
+```shell
 # insert ftext (save direct or in gz file)
 python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
 python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin.gz --log_level info
@@ -70,20 +78,44 @@ python src/libtext.py extract project/pysrc_all/build/COM001_rebuild.bin -o "pro
 
 # check ftext (direct or in zip file)
 python src/libtext.py check "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all/build/COM001_rebuild.bin -o "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
+```
 
+### libfont
+
+```shell
+# font tbl operation
+python src/libfont.py tbl_make cp932 --tchar_replace "亜" "亚" -o "project/pysrc_all/build/sjis.tbl"
+python src/libfont.py tbl_make cp936 -o "project/pysrc_all/build/gb2312.tbl"
+python src/libfont.py tbl_align "project/pysrc_all/build/sjis.tbl" -o "project/pysrc_all/build/sjis_align.tbl" --gap_static --tbl_padding "ff" "x" --gap 0 2 --gap 2 -2
+python src/libfont.py tbl_merge --intersect "project/pysrc_all/build/sjis.tbl" "project/pysrc_all/build/gb2312.tbl" -o "project/pysrc_all/build/sjis_gb2312_merge.tbl" --range_reserve 0 70
+
+# make glphy operation
+python src/libfont.py font_make --format image "C:\Windows\Fonts\simhei.ttf" --tbl "test/sample/COM001.tbl" -o "project/pysrc_all/build/com001_font24.png" --tilew 24 --tileh 24
+python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tbl "test/sample/COM001.tbl" -o "project/pysrc_all/build/com001_font2418_8bpp.bin" --tilew 24 --tileh 18 --tilebpp 8
+python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tbl "test/sample/COM001.tbl" -o "project/pysrc_all/build/com001_font1614_2bpp.bin" --tilew 16 --tileh 14 --tilebpp 2 --palette "00 00 00 00 ff ff ff 60 ff ff ff a0 ff ff ff ff"
+
+# extract glphy operation
+mkdir -p "project/pysrc_all/build/com001_font24" 
+mkdir -p "project/pysrc_all/build/it"
+python src/libfont.py font_extract --format image "project/pysrc_all/build/com001_font24.png" -o "project/pysrc_all/build/com001_font24" --tilew 24 --tileh 24
+python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize=92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+
+```
+
+### libimage
+
+```shell
+```
+
+### ftextpack, ftextcvt
+
+```shell
 # pack compact mode in zip file
 python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all/build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
 
 # json convert
 python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001.json
 python src/ftextcvt.py project/pysrc_all/build/COM001.json -o project/pysrc_all/build/COM001.json.txt
-```
-
-Use these scripts to testing
-
-```shell
-sh project/pysrc_all/test_pyunit.sh
-sh -c "source project/pysrc_all/test_pycli.sh && test_all"
 ```
 
 ## File Formats
@@ -143,11 +175,13 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] seperate Localizetion Tool from ReverseTool Repo  
 * [x] make unit test and cli test script
 * [x] write documentation about the project, such as format and cli example  
-* [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, see [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
+* [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
 * [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
-* [ ] remake `libimage.py`, `libfont.py`, use numba to improve performance, [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.1beta)
-* [ ] remake `libword.py`, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
-* [ ] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
+* [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
+* [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta)
+* [ ] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
+* [ ] remake `libword.py`, [v0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
+* [ ] add collated batch files input to improve io performance
 
 ## History
 

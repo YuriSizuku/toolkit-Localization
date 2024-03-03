@@ -601,7 +601,7 @@ def cli(cmdstr=None):
             bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
 
     parser = argparse.ArgumentParser(description=description)
-    subparsers = parser.add_subparsers(title="sub command")
+    subparsers = parser.add_subparsers(title="operations")
     parser_e = subparsers.add_parser("extract", help="extract text in binfile to ftext")
     parser_i = subparsers.add_parser("insert", help="insert ftext to binfile")
     parser_c = subparsers.add_parser("check", help="check the ftext with binfile")

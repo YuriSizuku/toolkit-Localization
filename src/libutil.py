@@ -108,7 +108,7 @@ def readimage(inobj: Union[bytes, str], pixel_format=None, img_format=None, pale
     """
     read image from bytes, bytearray, io or file
     :param pixel_format: "L", "RGBA", "P", "PA"
-    :param img_format:  "png", "jpg" see support by python3 -m PIL
+    :param img_format:  "png", "jpeg" see support by python3 -m PIL
     :param palette: output palette
     :return: numpy array of image
     """
@@ -130,7 +130,7 @@ def writeimage(outobj: Union[str, BytesIO], img, pixel_format=None, img_format="
     """
     write image to io or file
     :param pixel_format: "L", "RGBA", "P", "PA"
-    :param img_format:  "png", "jpg" see support by python3 -m PIL
+    :param img_format:  "png", "jpeg" see support by python3 -m PIL
     :param palette: output palette
     :return: size of image
     """

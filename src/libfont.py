@@ -1,13 +1,15 @@
  # -*- coding: utf-8 -*-
-"""
-A font tool (remake) for tbl and processing fonts
+description = """
+A font tool (remake) for tbl and glphy operations
     v0.3, developed by devseed
 """
 
+import os
 import math
 import copy
 import struct
 import logging
+import argparse
 from io import BytesIO
 from typing import Callable, Union, Tuple, List, Dict, Set
 
@@ -17,12 +19,12 @@ from PIL import ImageFont, ImageDraw, Image
 __version__ = 300
 
 try:
-    from libutil import tile_t, tbl_t, writebytes, filter_loadfiles, load_tbl
+    from libutil import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_tbl, save_tbl
 except ImportError:
-    exec("from libutil_v600 import tile_t, tbl_t, writebytes, filter_loadfiles, load_tbl")
+    exec("from libutil_v600 import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_tbl, save_tbl")
 
 # tbl generations
-def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -> List[tbl_t]: 
+def make_cp932_tbl(range_full=True, text_fallback="♯", out_failed: List[int]=None) -> List[tbl_t]: 
     def _process(high, low):
         tcode = struct.pack('<BB', high, low)
         try:
@@ -43,7 +45,7 @@ def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -
             _process(high, low)
     
     # 0xE0-0xEF, sometimes 0xE0~-0xEA
-    end = 0xf0 if full is True else 0xeb
+    end = 0xf0 if range_full is True else 0xeb
     for high in range(0xe0, end): 
         for low in range(0x40, 0xfd):
             if low==0x7f: continue
@@ -52,9 +54,9 @@ def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -
     logging.info(f"make tbl cp932 with {len(tbl)} chars")
     return tbl  
 
-def make_cp936_tbl(only_kanji=False) -> List[tbl_t]:
+def make_cp936_tbl(range_kanji=False) -> List[tbl_t]:
     tbl: List[tbl_t] = []
-    if only_kanji is False:
+    if range_kanji is False:
         for low in range(0x20, 0x7f): # asci
             tcode = struct.pack('<B', low)
             tbl.append(tbl_t(tcode, tcode.decode("gb2312")))
@@ -84,14 +86,14 @@ def make_cp936_tbl(only_kanji=False) -> List[tbl_t]:
     logging.info(f"make tbl cp936 with {len(tbl)} chars")
     return tbl
 
-# tbl manipulate
+# tbl operations
 def replace_tchar_tbl(tbl: List[tbl_t], replace: Dict[str, str]) -> List[tbl_t]:
     f = lambda x: tbl_t(x.tcode, replace[x.tchar] if x.tchar in replace else x.tchar) 
-    return list(f, tbl) 
+    return list(map(f, tbl))
 
 def replace_encoding_tbl(tbl:List[tbl_t], encoding:str) -> List[tbl_t]:
     f = lambda x: tbl_t(x.tchar.encode(encoding), x.tchar) 
-    return list(f, tbl) 
+    return list(map(f, tbl))
 
 def diff_tchar_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t]) -> Tuple[Set, Set, Set]:
     """
@@ -104,11 +106,11 @@ def diff_tchar_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t]) -> Tuple[Set, Set, Set]
     return t1set - t2set, t2set - t1set,  t1set & t2set
 
 def align_tbl(tbl: List[tbl_t], gap_map: Dict[int, int] = None, gap_static=True, 
-        ftext_padding: tbl_t=tbl_t(b'\xff', '')) -> List[tbl_t]:
+        tbl_padding: tbl_t=tbl_t(b'\xff', '')) -> List[tbl_t]:
     """
     manualy align tbl for glphys 
     by adding offset(+-) in gap_map at some position 
-    :param gap_map: for adding offset in tbl, + for padding, - for skip
+    :param gap_map: {pos: shift}, + for padding, - for skip
     :param gap_static: use static index for gap
     """
 
@@ -124,14 +126,14 @@ def align_tbl(tbl: List[tbl_t], gap_map: Dict[int, int] = None, gap_static=True,
             n = gap_map[gap_pos]
             if  n < 0: skip = -n - 1; gap_pos = -1; continue 
             elif n > 0: 
-                for j in range(n): tbl_aligned.append(ftext_padding) # dup by padding
+                for j in range(n): tbl_aligned.append(tbl_padding) # dup by padding
                 tbl_aligned.append(t); gap_pos = 0 # reset to enable gap
         else: tbl_aligned.append(t); gap_pos = 0
     return tbl_aligned
 
-def merge_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t], text_fallback="♯") -> List[tbl_t]:
+def merge_simple_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t], text_fallback="♯") -> List[tbl_t]:
     """
-    merge the tcode in tbl1 and the tchar in tbl2
+    merge simply as the tcode in tbl1 and the tchar in tbl2
     :return: based on tbl1
     """
 
@@ -139,13 +141,14 @@ def merge_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t], text_fallback="♯") -> List
     for i, t in enumerate(tbl1):
         tchar = tbl2[i].tchar if i < len(tbl2) else text_fallback 
         tbl3.append(tbl_t(t.tcode, tchar))
-    logging.info(f"merged tbl1(length={len(tbl1)}) and tbl2(length=f{len(tbl2)})")
+    logging.info(f"merged tbl1(length={len(tbl1)}) and tbl2(length={len(tbl2)})")
     return tbl3
 
-def rebuild_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t], 
+def merge_intersect_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t], 
         reserved: Set=None, find_range=range(-1, -1, -1)) -> List[tbl_t]:
     """
-    rebuild with (tbl1.tcode, tbl2.tchar) as common tchar in same position
+    merge with intersection (tbl1.tcode, tbl2.tchar)
+    as the common tchar in the same position
     :params reserved: reserved position for not override
     """
 
@@ -178,7 +181,7 @@ def rebuild_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
             return None
     return tbl3
 
-# font manipulate
+# font operations
 def encode_index_palette(img: np.ndarray, palette: np.ndarray) -> np.ndarray:
     """
     palette (n, 4), img (h, w, 4) -> index(h, w)
@@ -215,12 +218,13 @@ def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette:
             tiledata[:datasize] = IDX.ravel()
 
 def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray):  
-    h, w = tilew, tileh
+    w, h = tilew, tileh
     datasize = h * w * tilebpp // 8
     if tilebpp <= 16:
         if tilebpp <= 8:
             n = 8//tilebpp # 2bpp, 4 index extend in 1bytes
-            X, Y = np.meshgrid(np.arange(tileh, dtype=np.uint32), np.arange(tilew, dtype=np.uint32))
+            Y, X = np.meshgrid(np.arange(tileh, dtype=np.uint32), 
+                               np.arange(tilew, dtype=np.uint32), indexing='ij')
             POS = Y * tilew + X # (h, w)
             SHIFT = (POS % n) * tilebpp
             MASK = ((1<<tilebpp)-1) << SHIFT
@@ -230,7 +234,7 @@ def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette:
         if palette is None:                 
             R = G = B = 255 * np.ones((h, w), dtype=np.uint8)
             A = IDX * 255 // (2**tilebpp -1)
-            PIXEL = np.column_stack([R, G, B, A])
+            PIXEL = np.dstack([R, G, B, A])
         else: 
             PIXEL = decode_index_palette(IDX, palette)
         img [:] = PIXEL
@@ -276,13 +280,13 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
             alpha = alpha + (1-alpha)*alpha
         img[..., 3] = (alpha*255).astype(np.uint8)
 
-    if outpath: pil.save(outpath)
+    if outpath: writeimage(outpath, img)
     return img
 
 @filter_loadfiles(1)
 def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
         tile: tile_t, outpath=None, *, n_render=3, render_size=0, render_shift=(0, 0), 
-        f_encode: Callable=encode_glphy) -> np.ndarray:
+        f_encode: Callable=encode_glphy, palette=None) -> np.ndarray:
     """
     :param tblobj: tbl path or tbl object
     :param ttfobj: ttf font path or bytes
@@ -298,7 +302,8 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
     n_glphy = len(tbl)
     tile.size = tile.h*tile.w*tile.bpp//8
-    logging.info(f"render font to {n_glphy} {tile} glphys")
+    logging.info(f"render font to {n_glphy} {tile} glphys" + \
+        f", with palatte {repr(palette.shape)}" if palette is not None else "")
     
     if render_size==0: render_size=min(tile.w, tile.h)
     font = ImageFont.truetype(BytesIO(ttfobj), render_size)
@@ -317,14 +322,230 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
                 alpha = alpha + (1-alpha)*alpha
             tileimg[..., 3] = (alpha*255).astype(np.uint8)
         f_encode(tiledata[i*tile.size: (i+1)*tile.size], 
-                    tile.size, tile.w, tile.h, tile.bpp, None, tileimg)
+                    tile.size, tile.w, tile.h, tile.bpp, palette, tileimg)
         tileimg.fill(0)
-    if outpath: writebytes(outpath, tiledata)
+    if outpath: writebytes(outpath, tiledata.tobytes())
     return tiledata
 
-if __name__ == "__main__":
-    pass
+def extract_glphy(tileimg, outdir, i, tbl: List[tbl_t]=None) -> str:
+    """
+    extract a glphy to outdir, with tbl encoded
+    warning, better not write to zip file, very slow here
+    """
 
+    def join_path(path, name):
+        if len(path) > 3 and path[-4:].lower() == ".zip":
+            path += ">" + name
+        elif ".zip" in path:
+            path = path.rstrip("/") + "/" + name
+        else: path = os.path.join(path, name)
+        return path
+        
+    def save_jpg(outpath, tileimg):
+        A = tileimg[..., 3:].astype(np.float32)/255 
+        RGB = tileimg[..., :3].astype(np.float32)/255
+        writeimage(outpath, (RGB*A*255).astype(np.uint8), img_format="JPEG")
+
+    if tbl:
+        try:
+            reject =  {'<', '>', '|', ':', '*', '&', '/', '\\', '"', "'"}
+            tchar = tbl[i].tchar
+            ucode = ord(tchar) if len(tchar) > 0 else 0
+            name = "%05d_u%04X_%s"%(i, ucode, tchar) if tbl else "%05d"%(i)
+            name = "".join(list(filter(lambda x: x not in reject, name)))
+            if outdir:
+                outpath = join_path(outdir, name + ".jpg")
+                save_jpg(outpath, tileimg)
+        except (IOError) as e:
+            name = "%05d_u%04X"%(i, ucode) if tbl else "%05d"%(i)
+            if outdir:
+                outpath = join_path(outdir, name + ".jpg")
+                save_jpg(outpath, tileimg)
+    else:
+        name = "%05d"%(i)
+        outpath = join_path(outdir, name + ".jpg")
+        save_jpg(outpath, tileimg)
+    logging.debug(f'[i={i} {repr(tbl[i] if tbl else "")} name={name}]')
+    return name
+
+@filter_loadimages((1, "RGBA"))
+def extract_image_font(tblobj: Union[str, List[tbl_t]], 
+        inobj: Union[str, np.ndarray], tile: tile_t, outdir=None) -> List[str]:
+    """
+    extract the glphys from image to outdir
+    :param inobj: rgba image
+    """
+
+    img = inobj
+    h, w = img.shape[0], img.shape[1]
+    n_row = w//tile.w
+    tbl = load_tbl(tblobj) if tblobj!=None else None
+    n_glphy = len(tbl) if tbl else w//tile.w * h//tile.h
+    n_glphy = min(n_glphy, w//tile.w * h//tile.h)
+    logging.info(f"extract {n_glphy} {tile} glphys")
+    names = n_glphy*[None]
+    for i in range(n_glphy):
+        x, y = i%n_row*tile.h, i//n_row*tile.w
+        tileimg = img[y: y+tile.h, x: x+tile.w, ...]
+        names.append(extract_glphy(tileimg, outdir, i, tbl))
+
+    return names
+
+@filter_loadfiles(1)
+def extract_tile_font(tblobj: Union[str, List[tbl_t]], 
+        inobj: Union[str, np.ndarray], tile: tile_t, outdir=None, palette=None) -> List[str]:
+    """
+    extract the glphys from tiles to outdir
+    :param inobj: tiledata
+    """
+
+    if tile.size <=0: tile.size = int(tile.h*tile.w*tile.bpp//8)
+    tbl = load_tbl(tblobj) if tblobj!=None else None
+    tiledata = np.frombuffer(inobj, dtype=np.uint8)
+    n_glphy = len(tbl) if tbl else len(inobj)//tile.size
+    n_glphy = min(n_glphy, len(inobj)//tile.size)
+    logging.info(f"extract {n_glphy} {tile} glphys" + \
+        f", with palatte {repr(palette.shape)}" if palette is not None else "")
+    names = n_glphy*[None]
+    tileimg = np.zeros([tile.h, tile.w, 4], dtype=np.uint8)
+    for i in range(n_glphy):
+        decode_glphy(tiledata[i*tile.size: (i+1)*tile.size], 
+            tile.size, tile.w, tile.h, tile.bpp, palette, tileimg)
+        names.append(extract_glphy(tileimg, outdir, i, tbl))
+
+    return names
+
+def cli(cmdstr=None):
+    def cmd_tbl_replace(tbl, tchar_replace, tcode_encoding):
+        if tchar_replace: tbl = replace_tchar_tbl(tbl, tchar_replace)
+        if tcode_encoding: tbl = replace_encoding_tbl(tbl, tcode_encoding)
+        return tbl
+
+    def cmd_tbl_make(args):
+        logging.debug(repr(args))
+        tchar_replace = dict((t[0], t[1]) for t in  args.tchar_replace) if args.tchar_replace else None
+        if args.codepage == "cp932":
+            tbl = make_cp932_tbl(range_full=args.range_full, text_fallback=args.text_fallback)
+        elif args.codepage == "cp936":
+            tbl = make_cp936_tbl(range_kanji=args.range_kanji)
+        tbl = cmd_tbl_replace(tbl, tchar_replace, args.tcode_encoding)
+        save_tbl(tbl, args.outpath)
+
+    def cmd_tbl_align(args):
+        logging.debug(repr(args))
+        tchar_replace = dict((t[0], t[1]) for t in  args.tchar_replace) if args.tchar_replace else None
+        tbl_padding = tbl_t(bytes.fromhex(args.tbl_padding[0]), args.tbl_padding[1])
+        gap_map =  dict((t[0], t[1]) for t in  args.gap) if args.gap else None
+        tbl = load_tbl(args.tbl1path)
+        tbl = align_tbl(tbl, gap_map=gap_map, gap_static=args.gap_static, tbl_padding=tbl_padding)
+        tbl = cmd_tbl_replace(tbl, tchar_replace, args.tcode_encoding)
+        save_tbl(tbl, args.outpath)
+
+    def cmd_tbl_merge(args):
+        logging.debug(repr(args))
+        tchar_replace = dict((t[0], t[1]) for t in  args.tchar_replace) if args.tchar_replace else None
+        tbl1, tbl2 = load_tbl(args.tbl1path), load_tbl(args.tbl2path)
+        if args.intersect: 
+            find_range = range(*args.range_find)
+            reserved = set()
+            if args.range_reserved:
+                for r in args.range_reserved:
+                    reserved |= set(i for i in range(r[0], r[1]))
+            tbl3 = merge_intersect_tbl(tbl1, tbl2, reserved=reserved, find_range=find_range)
+        else: tbl3 = merge_simple_tbl(tbl1, tbl2, args.text_fallback)
+        cmd_tbl_replace(tbl3, tchar_replace, args.tcode_encoding)
+        save_tbl(tbl3, args.outpath)
+
+    def cmd_font_make(args):
+        logging.debug(repr(args))
+        tile = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        if args.format == "image":
+            make_image_font(args.tbl, args.ttfpath, tile, outpath=args.outpath, 
+                n_row=args.n_row, n_render=args.n_render, 
+                render_size=args.render_size, render_shift=args.render_shift)
+        elif args.format == "tile":
+            palette = bytes.fromhex(args.palette) if args.palette else None
+            if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
+            make_tile_font(args.tbl, args.ttfpath, tile, args.outpath, 
+                n_render=args.n_render, render_size=args.render_size, 
+                render_shift=args.render_shift, palette=palette)
+
+    def cmd_font_extract(args):
+        logging.debug(repr(args))
+        tile = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        if args.format == "image":
+            extract_image_font(args.tbl, args.fontpath, tile, outdir=args.outpath)
+        elif args.format == "tile":
+            palette = bytes.fromhex(args.palette) if args.palette else None
+            if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
+            extract_tile_font(args.tbl, args.fontpath, tile, outdir=args.outpath, palette=palette)
+
+    p = argparse.ArgumentParser(description=description)
+    p2 = p.add_subparsers(title="operations")
+    p_tbl_make = p2.add_parser("tbl_make", help="make the tbl according encoding")
+    p_tbl_align = p2.add_parser("tbl_align", help="align the tbl by some gap shift")
+    p_tbl_merge = p2.add_parser("tbl_merge", help="merge the tbl1 tcode and tbl2 tchar")
+    p_font_make = p2.add_parser("font_make", help="make font according to tbl")
+    p_font_extract = p2.add_parser("font_extract", help="extract font to test align with tbl")
+    for t in [p_tbl_make, p_tbl_align, p_tbl_merge, p_font_make, p_font_extract]:
+        t.add_argument("-o", "--outpath", default="out")
+        t.add_argument("--log_level", default="info", help="set log level", 
+            choices=("none", "critical", "error", "warnning", "info", "debug"))
+        
+    # tbl operations
+    for t in [p_tbl_make, p_tbl_align, p_tbl_merge]:
+        t.add_argument("--text_fallback", default="♯", help="fallback for decode failed")
+        t.add_argument("--tchar_replace", type=str, default=None, 
+            metavar=('src', 'dst'), nargs=2, action='append', help="replace the tchar in tbl")
+        t.add_argument("--tcode_encoding", default=None, help="re encoding the tcode in tbl")
+    p_tbl_make.set_defaults(handler=cmd_tbl_make)
+    p_tbl_make.add_argument("codepage", choices=["cp932", "cp936"])
+    p_tbl_make.add_argument("--range_full", action="store_true", help="only for cp932")
+    p_tbl_make.add_argument("--range_kanji", action="store_true", help="only for cp936")
+    p_tbl_align.set_defaults(handler=cmd_tbl_align)
+    p_tbl_align.add_argument("tbl1path")
+    p_tbl_align.add_argument("--gap", type=int, default=None, 
+        metavar=("pos", "skip"), nargs=2, action='append', help="add skip or padding value to align tbl")
+    p_tbl_align.add_argument("--gap_static", action="store_true", help="the gap map is based on tbl1")
+    p_tbl_align.add_argument("--tbl_padding", type=str, default=('ff', ''), 
+        metavar=("tcode", "tchar"), nargs=2, help="paddings for tbl")
+    p_tbl_merge.set_defaults(handler=cmd_tbl_merge)
+    p_tbl_merge.add_argument("tbl1path")
+    p_tbl_merge.add_argument("tbl2path")
+    p_tbl_merge.add_argument("--intersect", action="store_true", help="use intersect operation on merge")
+    p_tbl_merge.add_argument("--range_reserved", type=int, nargs=2, action='append', 
+        metavar=("start", "end"), default=None, help="for intersect, not used range")
+    p_tbl_merge.add_argument("--range_find", type=int, nargs=3, default=(-1, -1, -1),
+        metavar=("start", "end", "step"), help="for intersect, find interation range")
+
+    # font operations
+    for t in [p_font_make, p_font_extract]:
+        t.add_argument("--tbl", default=None, help="tbl for making or extracting glphies")
+        t.add_argument("--format", required=True, choices=["image", "tile"], help="output format")
+        t.add_argument("--palette", type=str, default=None)
+        t.add_argument("--tilew", type=int, default=24)
+        t.add_argument("--tileh", type=int, default=24)
+        t.add_argument("--tilebpp", type=int, default=8)
+        t.add_argument("--tilesize",type=int , default=0)
+    p_font_make.set_defaults(handler=cmd_font_make)
+    p_font_make.add_argument("ttfpath")
+    p_font_make.add_argument("--n_row", default=64, help="glphys count in a row")
+    p_font_make.add_argument("--n_render", default=3, help="render overlap count")
+    p_font_make.add_argument("--render_size", default=0, help="glphy size")
+    p_font_make.add_argument("--render_shift", type=int, nargs=2, 
+        metavar=("x", "y"), default=(0, 0), help="render shift in a glphy")
+    p_font_extract.set_defaults(handler=cmd_font_extract)
+    p_font_extract.add_argument("fontpath")
+
+    args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
+    loglevel = args.log_level if hasattr(args, "log_level") else "info"
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+                        format="%(levelname)s:%(funcName)s: %(message)s")
+    if hasattr(args, "handler"): args.handler(args)
+    else: p.print_help()
+
+if __name__ == "__main__":
+    cli()
 
 """
 history:

@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-2019 # default batch, powershell
     strategy:
       matrix:
-        pyexe_name: [libtext, ftextcvt, ftextpack]
+        pyexe_name: [libtext, libfont, ftextcvt, ftextpack]
     steps:
     - name: pull and init
       uses: actions/checkout@v3
