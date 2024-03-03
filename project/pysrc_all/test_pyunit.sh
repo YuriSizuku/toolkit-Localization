@@ -2,7 +2,7 @@ test_pysrc()
 {
     path=$1
     name=${path##*/}
-    echo "## $name"
+    echo "## test $name"
     python $path
     echo ""
 }

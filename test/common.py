@@ -4,6 +4,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), r"src"))
 sys.path.append(os.path.join(os.path.dirname(__file__), r"../src"))
 
+paths_img = {"403": "test/sample/403.png"}
 paths_bin = {'COM001': "test/sample/COM001", "it": "test/sample/it.bin"}
 paths_tbl = {'COM001': "test/sample/COM001.tbl"}
 paths_ftext = {'COM001': "test/sample/COM001.txt"}

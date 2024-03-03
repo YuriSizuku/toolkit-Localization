@@ -14,6 +14,6 @@ build_pysrc ../../src ./build libutil
 build_pysrc ../../src ./build libtext
 build_pysrc ../../src ./build libfont
 build_pysrc ../../src ./build libimage
-# build_pysrc ../../src ./build linword
+# build_pysrc ../../src ./build libword
 build_pysrc ../../src ./build ftextcvt
 build_pysrc ../../src ./build ftextpack

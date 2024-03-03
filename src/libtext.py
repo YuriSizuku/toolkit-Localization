@@ -11,9 +11,9 @@ from functools import lru_cache
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
-    from libutil import writelines, savebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
+    from libutil import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil_v600 import writelines, savebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
+    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
 
 __version__  = 600
 
@@ -492,7 +492,7 @@ def insert_ftexts(binobj: Union[str, bytes],
     dstio.write(srcdata[last_addr:])
     dstdata = dstio.getvalue()
     dstio.close()
-    if outpath: savebytes(outpath, dstdata)
+    if outpath: writebytes(outpath, dstdata)
     logging.info(f"finished with datasize 0x{len(srcdata):x}->0x{len(dstdata):x}")
     return dstdata
 
@@ -562,7 +562,7 @@ def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outp
             msgs.append(msg)
 
     lines = [f"{logging.getLevelName(t.type)}: {t.msg}\n" for t in msgs]
-    if outpath: savebytes(outpath, writelines(lines))
+    if outpath: writebytes(outpath, writelines(lines))
 
     return msgs
 

@@ -90,8 +90,8 @@ class TesttManipulateFont(unittest.TestCase):
         for y in range(idx1.shape[0]):
             for x in range(idx1.shape[1]):
                 idx1[y][x] = (y + x) % 16
-        img1 = libfont.decode_index_palatte(idx1, palatte)
-        idx2 = libfont.encode_index_palatte(img1, palatte)
+        img1 = libfont.decode_index_palette(idx1, palatte)
+        idx2 = libfont.encode_index_palette(img1, palatte)
         self.assertTrue(np.array_equal(idx1, idx2))
         
         # test glphy decode encode

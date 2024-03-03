@@ -2,6 +2,7 @@ import time
 import logging
 import unittest
 import numpy as np
+import tempfile
 
 from common import *
 import libimage
@@ -46,29 +47,50 @@ class TestTileImage(unittest.TestCase):
 
             # test encode decode with palatte
             start = time.time()
-            img = libimage.decode_tile_image(data, tile=tile, palatte=palatte, n_tile=n_tile)
+            img = libimage.decode_tile_image(data, tile=tile, palette=palatte, n_tile=n_tile)
             print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile} (with palatte)")
             start = time.time()
-            data2 =libimage.encode_tile_image(img, tile=tile, palatte=palatte, n_tile=n_tile)
+            data2 =libimage.encode_tile_image(img, tile=tile, palette=palatte, n_tile=n_tile)
             print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile} (with palatte)")
             self.assertTrue(np.array_equal(data[:datasize], data2[:datasize]))
             # Image.fromarray(img).save("project/pyexe_libtext/build/it.png")
 
 class TestPalatteImage(unittest.TestCase):
     def test_example_index4(self):
-        palatte = libimage.make_linear_palatte(4)
+        palatte = libimage.make_linear_palette(4)
         img1 = np.zeros([10, 10, 4], dtype=np.uint8)
         # img1[..., 3] = np.random.randint(0, 16, (10,), dtype=np.uint8)
         for y in range(img1.shape[0]):
             for x in range(img1.shape[1]):
                 img1[y][x][3] = (y + x) % 16
         
-        img2 = libimage.decode_alpha_palatte(img1, palatte)
-        palatte2 = libimage.quantize_palatte(img2, 4)
+        img2 = libimage.decode_alpha_palette(img1, palatte)
+        palatte2 = libimage.quantize_palette(img2, 4)
         self.assertTrue(np.array_equal(palatte, palatte2))
-        img3 = libimage.encode_alpha_palatte(img2, palatte)
+        img3 = libimage.encode_alpha_palette(img2, palatte)
         self.assertEqual(img1.shape,  img3.shape)
         self.assertTrue(np.array_equal(img1[..., 3], img3[..., 3]))
+
+    def test_403_saveload(self):
+        tmpfp = tempfile.NamedTemporaryFile("wb+")
+        
+        # test readimg, write image
+        palette = np.zeros([256, 4], dtype=np.uint8)
+        img = libutil.readimage(paths_img["403"], palette=palette)
+        self.assertEqual(len(img.shape), 2)
+        self.assertGreater(img.max(), 0)
+        self.assertGreater(palette.max(), 0)
+        size = libutil.writeimage(tmpfp, img, palette=palette)
+        tmpfp.flush()
+        self.assertGreater(size, 0)
+        
+        # proof the equality of the write image
+        tmpfp.seek(0)
+        palette2 = np.zeros([256, 4], dtype=np.uint8)
+        img2 = libutil.readimage(tmpfp, palette=palette2)
+        self.assertTrue(np.array_equal(palette, palette2))
+        self.assertTrue(np.array_equal(img, img2))
+        tmpfp.close()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(funcName)s: %(message)s")

@@ -82,7 +82,7 @@ python src/ftextcvt.py project/pysrc_all/build/COM001.json -o project/pysrc_all/
 Use these scripts to testing
 
 ```shell
-sh project/pysrc_all/test_pysrc.sh
+sh project/pysrc_all/test_pyunit.sh
 sh -c "source project/pysrc_all/test_pycli.sh && test_all"
 ```
 

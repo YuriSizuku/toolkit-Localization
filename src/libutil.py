@@ -48,7 +48,7 @@ def writelines(lines: List[str], encoding='utf-8', encoding_error='ignore') -> b
     bufio.close()
     return data
 
-def loadbytes(path) -> bytes:
+def readbytes(inobj: Union[str, BytesIO]) -> bytes:
     def load_gz(path) -> bytes: # path/x.gz 
         with gzip.GzipFile(path, 'rb') as fp: 
             return fp.read()
@@ -63,13 +63,17 @@ def loadbytes(path) -> bytes:
     def load_direct(path) -> bytes:
         with open(path, 'rb') as fp:
             return fp.read()
-    
-    if os.path.splitext(path)[1] == '.gz': data = load_gz(path)
-    elif ".zip>" in path: data = load_zip(path)
-    else: data = load_direct(path)
+        
+    if type(inobj)==str:
+        path = inobj
+        if os.path.splitext(path)[1] == '.gz': data = load_gz(path)
+        elif ".zip>" in path: data = load_zip(path)
+        else: data = load_direct(path)
+    else:
+        data = inobj.read()
     return data
 
-def savebytes(path, data) -> int:
+def writebytes(outobj: Union[str, BytesIO], dataobj: Union[bytes, BytesIO]) -> int:
     def save_gz(path, data) -> int: # path/x.gz 
         with gzip.GzipFile(path, 'wb') as fp: 
             return fp.write(data)
@@ -87,16 +91,59 @@ def savebytes(path, data) -> int:
     def save_direct(path, data) -> int:
         with open(path, 'wb') as fp:
             return fp.write(data)
+        
+    if type(dataobj) in {bytes, bytearray, memoryview}: data = dataobj
+    else: data = dataobj.read() 
     
-    if os.path.splitext(path)[1]==".gz": return save_gz(path, data)
-    elif ".zip>" in path: return save_zip(path, data)
-    else: return save_direct(path, data)
+    size = 0
+    if type(outobj)==str:
+        path = outobj
+        if os.path.splitext(outobj)[1]==".gz": size = save_gz(path, data)
+        elif ".zip>" in outobj: size = save_zip(path, data)
+        else: size = save_direct(path, data)
+    else: size = outobj.write(data)
+    return size
 
-def loadimage(inobj, img_format="png", pixel_format="RGBA", palatte=None):
-    pass
+def readimage(inobj: Union[bytes, str], pixel_format=None, img_format=None, palette=None):
+    """
+    read image from bytes, bytearray, io or file
+    :param pixel_format: "L", "RGBA", "P", "PA"
+    :param img_format:  "png", "jpg" see support by python3 -m PIL
+    :param palette: output palette
+    :return: numpy array of image
+    """
 
-def saveimage(outobj, img, img_format="png", pixel_format="RGBA", palatte=None):
-    pass
+    bufio = BytesIO(readbytes(inobj)) 
+    fmt = None if img_format is None else [img_format]
+    pil = Image.open(bufio, "r", fmt)
+    pil.readonly = False
+    if palette is not None: 
+        pil.apply_transparency() # add transparency to alpha
+        pil_palette = pil.getpalette("RGBA")
+        if pil_palette: palette.reshape((-1))[:len(pil_palette)] = pil_palette
+    if pixel_format is not None: pil = pil.convert(pixel_format)
+    img = np.asarray(pil)
+    bufio.close()
+    return img
+
+def writeimage(outobj: Union[str, BytesIO], img, pixel_format=None, img_format="png", palette=None):
+    """
+    write image to io or file
+    :param pixel_format: "L", "RGBA", "P", "PA"
+    :param img_format:  "png", "jpg" see support by python3 -m PIL
+    :param palette: output palette
+    :return: size of image
+    """
+
+    bufio = BytesIO()
+    pil = Image.fromarray(img)
+    pil.readonly = False
+    if palette is not None: pil.putpalette(palette.reshape(-1), "RGBA")
+    if pixel_format is not None: pil = pil.convert(pixel_format, palette=pil.palette)
+    pil.save(bufio, img_format)
+    data = bufio.getvalue()
+    bufio.close()
+    return writebytes(outobj, data)
 
 def filter_loadfiles(targets: Union[int, str, List]=None):
     """
@@ -116,7 +163,7 @@ def filter_loadfiles(targets: Union[int, str, List]=None):
                 if type(t0)==int and type(args[t0])==str: w=args
                 elif type(t0)==str and t in kw and type(kw[t0]) == str: w=kw
                 if w is None: continue # no target arg
-                data = loadbytes(w[t0])
+                data = readbytes(w[t0])
                 w[t0] = readlines(data, *t1) if t1 else data
             return func(*args, **kw)
         return wrapper2
@@ -124,7 +171,7 @@ def filter_loadfiles(targets: Union[int, str, List]=None):
 
 def filter_loadimages(targets: Union[int, str, List]=None):
     """
-    :params targets: can be 0, 'k', [0], [(0, 'png', 'format', palatte), 'k'], 
+    :params targets: can be 0, 'k', [0], [(0, 'png', 'format', palette), 'k'], 
     """
     
     if targets == None: targets = [0]
@@ -140,7 +187,7 @@ def filter_loadimages(targets: Union[int, str, List]=None):
                 if type(t0)==int and type(args[t0])==str: w=args
                 elif type(t0)==str and t in kw and type(kw[t0]) == str: w=kw
                 if w is None: continue # no target arg
-                data = loadbytes(w[t0])
+                w[t0] = readimage(w[t0], *t1)
             return func(*args, **kw)
         return wrapper2
     return wrapper1
@@ -203,7 +250,7 @@ def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t],
         if t2: lines.append(fstr2.format(num=i, addr=t2.addr, size=t2.size, text=t2.text))
         lines.append("\n")
 
-    if outpath: savebytes(outpath, writelines(lines, encoding))
+    if outpath: writebytes(outpath, writelines(lines, encoding))
 
     return lines 
 
@@ -244,7 +291,7 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
         for d in t.tcode: raw_str += f"{d:02X}"
         line = ("{:s}={:s}\n".format(raw_str, t.tchar))
         lines.append(line)
-    if outpath: savebytes(outpath, writelines(lines, encoding))
+    if outpath: writebytes(outpath, writelines(lines, encoding))
     return lines
 
 @filter_loadfiles(0)

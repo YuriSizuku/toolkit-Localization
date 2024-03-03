@@ -17,9 +17,9 @@ from PIL import ImageFont, ImageDraw, Image
 __version__ = 300
 
 try:
-    from libutil import tile_t, tbl_t, savebytes, filter_loadfiles, load_tbl
+    from libutil import tile_t, tbl_t, writebytes, filter_loadfiles, load_tbl
 except ImportError:
-    exec("from libutil_v600 import tile_t, tbl_t, load_tbl, filter_loadfiles")
+    exec("from libutil_v600 import tile_t, tbl_t, writebytes, filter_loadfiles, load_tbl")
 
 # tbl generations
 def make_cp932_tbl(full=True, out_failed: List[int]=None, text_fallback="♯") -> List[tbl_t]: 
@@ -179,33 +179,33 @@ def rebuild_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
     return tbl3
 
 # font manipulate
-def encode_index_palatte(img: np.ndarray, palatte: np.ndarray) -> np.ndarray:
+def encode_index_palette(img: np.ndarray, palette: np.ndarray) -> np.ndarray:
     """
-    palatte (n, 4), img (h, w, 4) -> index(h, w)
+    palette (n, 4), img (h, w, 4) -> index(h, w)
     """
 
     DIS = 0x7FFFFFFF * np.ones(img.shape[:2], np.uint32)
     IDX = np.zeros(img.shape[:2], np.uint32)
-    for i in range(palatte.shape[0]):
-        TDIS = np.linalg.norm(img - palatte[i], 1, axis=-1) # (h, w)
+    for i in range(palette.shape[0]):
+        TDIS = np.linalg.norm(img - palette[i], 1, axis=-1) # (h, w)
         IDX[...] = i *(TDIS < DIS) + IDX * (TDIS >= DIS)
         DIS[...] = TDIS *(TDIS < DIS) + DIS * (TDIS >= DIS)
     return IDX
 
-def decode_index_palatte(index: np.ndarray, palatte: np.ndarray) -> np.ndarray:
+def decode_index_palette(index: np.ndarray, palette: np.ndarray) -> np.ndarray:
     """
-    palatte (n, 4), index(h, w) -> img(h, w, 4)
+    palette (n, 4), index(h, w) -> img(h, w, 4)
     """
 
-    return palatte[index, :]
+    return palette[index, :]
 
-def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte: np.ndarray, img: np.ndarray):
+def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray):
     h, w = img.shape[0], img.shape[1]
     datasize = h * w * tilebpp // 8
     if tilebpp >= 24:
         tiledata[:datasize] = img[..., :tilebpp//8].ravel()
     else:
-        if palatte is not None: IDX = encode_index_palatte(img, palatte)
+        if palette is not None: IDX = encode_index_palette(img, palette)
         else: IDX = img[..., 3].astype(np.uint16) / 255 * 2**tilebpp
         if tilebpp <= 8:
             n = 8//tilebpp
@@ -214,7 +214,7 @@ def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte:
         elif tilebpp==16:
             tiledata[:datasize] = IDX.ravel()
 
-def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte: np.ndarray, img: np.ndarray):  
+def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray):  
     h, w = tilew, tileh
     datasize = h * w * tilebpp // 8
     if tilebpp <= 16:
@@ -227,12 +227,12 @@ def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palatte:
             IDX = (tiledata[POS//n] & MASK) >> SHIFT # (h, w)
         elif tilebpp==16:
             IDX = tiledata.view(np.uint16)
-        if palatte is None:                 
+        if palette is None:                 
             R = G = B = 255 * np.ones((h, w), dtype=np.uint8)
             A = IDX * 255 // (2**tilebpp -1)
             PIXEL = np.column_stack([R, G, B, A])
         else: 
-            PIXEL = decode_index_palatte(IDX, palatte)
+            PIXEL = decode_index_palette(IDX, palette)
         img [:] = PIXEL
     elif tilebpp >= 24:
         n = tilebpp//8
@@ -291,7 +291,7 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     :param n_render: render multi times to increase brightness
     :param render_size: font size in each render glphy
     :param render_shift: (x, y) in each render glphy
-    :param f_encode: f(tiledata, tilesize, tilew, tileh, tilebpp, palatte, img)
+    :param f_encode: f(tiledata, tilesize, tilew, tileh, tilebpp, palette, img)
     :return: img
     """
     
@@ -319,7 +319,7 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
         f_encode(tiledata[i*tile.size: (i+1)*tile.size], 
                     tile.size, tile.w, tile.h, tile.bpp, None, tileimg)
         tileimg.fill(0)
-    if outpath: savebytes(outpath, tiledata)
+    if outpath: writebytes(outpath, tiledata)
     return tiledata
 
 if __name__ == "__main__":

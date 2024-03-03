@@ -18,10 +18,10 @@ from dataclasses import dataclass, field
 from typing import Callable, List
 
 try:
-    from libutil import savebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl
+    from libutil import writebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl
     from libtext import encode_extend
 except ImportError:
-    exec("from libutil_v600 import savebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl")
+    exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl")
     exec("from libtext_v600 import encode_extend")
 
 __version__ = 200
@@ -124,7 +124,7 @@ def pack_ftexts(binobjs, ftextobjs,
             else: fp.write(info)
         fp.write(content)
         end = fp.tell()
-        if type(outobj) == str: savebytes(outobj, fp.getvalue()); fp.close()
+        if type(outobj) == str: writebytes(outobj, fp.getvalue()); fp.close()
         logging.info(f"save 0x{end-start:x} bytes to {repr(outobj)}")
 
     # prepare enviroment

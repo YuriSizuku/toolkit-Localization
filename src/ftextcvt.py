@@ -15,9 +15,9 @@ from docx.shared import Pt
 from typing import Union, List, Dict
 
 try:
-    from libutil import writelines, savebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext
+    from libutil import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext
 except ImportError:
-    exec("from libutil_v600 import writelines, savebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
+    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
 
 __version__ = 300
 
@@ -58,7 +58,7 @@ def ftext2csv(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
         wr.writerow({"tag": "now", "addr": hex(t2.addr), "size": hex(t2.size), "text": t2.text})
     lines = sbufio.getvalue().splitlines(True)
     sbufio.close()
-    if outpath: savebytes(outpath, codecs.BOM_UTF8 + writelines(lines, "utf-8"))
+    if outpath: writebytes(outpath, codecs.BOM_UTF8 + writelines(lines, "utf-8"))
     return lines
 
 def ftext2json(ftextobj: Union[str, List[str]], outpath=None) -> List[str]:
@@ -80,7 +80,7 @@ def ftext2json(ftextobj: Union[str, List[str]], outpath=None) -> List[str]:
         })
     
     jstr = json.dumps(jarr, ensure_ascii=False, indent=2)
-    if outpath: savebytes(outpath, jstr.encode("utf-8"))
+    if outpath: writebytes(outpath, jstr.encode("utf-8"))
     return jstr.splitlines(True)
 
 @filter_loadfiles([(0, "utf-8")])
@@ -141,7 +141,7 @@ def docx2ftext(docxobj, outpath=None) -> List[str]:
     for p in document.paragraphs:
         line = p.text.rstrip('\n').rstrip('\r') 
         lines.append(line + '\n')
-    if outpath: savebytes(outpath, writelines(lines))
+    if outpath: writebytes(outpath, writelines(lines))
     return lines
 
 def cli(cmdstr=None):
