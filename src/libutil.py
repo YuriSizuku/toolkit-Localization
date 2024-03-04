@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+__description__ = """
 util functions and structures for galgame localization
     v0.6, developed by devseed
 """

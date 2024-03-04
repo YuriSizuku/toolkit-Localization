@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-g_description = f"""
-A tool to change or adjust ftext
+__description__ = """
+A convert tool to change or adjust ftext
     v0.3, developed by devseed
 """
 
@@ -163,7 +163,7 @@ def cli(cmdstr=None):
         if not flag: return
         raise NotImplementedError(f"convert not support {inpath_ext}->{outpath_ext}")
 
-    parser = argparse.ArgumentParser(description=g_description)
+    parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument("inpath")
     parser.add_argument("-o", "--outpath", default="out.txt")
 

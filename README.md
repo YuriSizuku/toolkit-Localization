@@ -105,7 +105,7 @@ python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "projec
 ### libimage
 
 ```shell
-# encode tile to image
+# decode tile to image
 python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff" 
 
 # encode image to 1 tile

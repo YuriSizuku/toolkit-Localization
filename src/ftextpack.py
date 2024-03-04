@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-description = """
+__description__ = """
 A flexble format with low memory implementation
     v0.2, developed by devseed
 
@@ -178,7 +178,7 @@ def cli(cmdstr=None):
         pack_sort=args.pack_sort, pack_org=args.pack_org, 
         pack_nodup=args.pack_nodup, pack_compact=args.pack_compact)
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument("binpath", help="bin file or dir")
     parser.add_argument("ftextpath", help="ftext file or dir")
     parser.add_argument("-o", "--outpath", default="data.fp01")

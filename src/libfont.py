@@ -1,5 +1,5 @@
  # -*- coding: utf-8 -*-
-description = """
+__description__ = """
 A font tool (remake) for tbl and glphy operations
     v0.3, developed by devseed
 """
@@ -259,11 +259,11 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
 
     valid_tile(tileinfo)
     tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
-    n_glphy = len(tbl)
+    n = len(tbl)
     w = n_row*tileinfo.w
-    h = math.ceil(n_glphy/n_row)*tileinfo.h
+    h = math.ceil(n/n_row)*tileinfo.h
     img = np.zeros((h, w, 4), dtype=np.uint8)
-    logging.info(f"render font to image ({w}X{h}), {n_glphy} glphys {tileinfo.w}x{tileinfo.h}")
+    logging.info(f"render font to image ({w}X{h}), {n} glphys {tileinfo.w}x{tileinfo.h}")
     
     if render_size==0: render_size=min(tileinfo.w, tileinfo.h)
     font = ImageFont.truetype(BytesIO(ttfobj), render_size)
@@ -302,13 +302,13 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
 
     valid_tile(tileinfo)
     tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
-    n_glphy = len(tbl)
-    logging.info(f"to {n_glphy} {tileinfo} glphys" + \
+    n = len(tbl)
+    logging.info(f"to {n} {tileinfo} glphys" + \
         (f", with palatte {repr(palette.shape)}" if palette is not None else ""))
     if render_size==0: render_size=min(tileinfo.w, tileinfo.h)
     font = ImageFont.truetype(BytesIO(ttfobj), render_size)
     tileimg = np.zeros([tileinfo.h, tileinfo.w, 4], dtype=np.uint8)
-    tiledata = np.zeros(n_glphy*tileinfo.size, dtype=np.uint8)
+    tiledata = np.zeros(n*tileinfo.size, dtype=np.uint8)
     pil = Image.fromarray(tileimg)
     pil.readonly = False
     draw = ImageDraw.Draw(pil)
@@ -381,11 +381,11 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]],
     h, w = img.shape[0], img.shape[1]
     n_row = w//tileinfo.w
     tbl = load_tbl(tblobj) if tblobj!=None else None
-    n_glphy = len(tbl) if tbl else w//tileinfo.w * h//tileinfo.h
-    n_glphy = min(n_glphy, w//tileinfo.w * h//tileinfo.h)
-    logging.info(f"extract {n_glphy} {tileinfo} glphys")
-    names = n_glphy*[None]
-    for i in range(n_glphy):
+    n = len(tbl) if tbl else w//tileinfo.w * h//tileinfo.h
+    n = min(n, w//tileinfo.w * h//tileinfo.h)
+    logging.info(f"extract {n} {tileinfo} glphys")
+    names = n*[None]
+    for i in range(n):
         x, y = i%n_row*tileinfo.h, i//n_row*tileinfo.w
         tileimg = img[y: y+tileinfo.h, x: x+tileinfo.w, ...]
         names.append(extract_glphy(tileimg, outdir, i, tbl))
@@ -403,13 +403,13 @@ def extract_tile_font(tblobj: Union[str, List[tbl_t]],
     valid_tile(tileinfo)
     tbl = load_tbl(tblobj) if tblobj!=None else None
     tiledata = np.frombuffer(inobj, dtype=np.uint8)
-    n_glphy = len(tbl) if tbl else len(inobj)//tileinfo.size
-    n_glphy = min(n_glphy, len(inobj)//tileinfo.size)
-    logging.info(f"{n_glphy} {tileinfo} glphys" + \
+    n = len(tbl) if tbl else len(inobj)//tileinfo.size
+    n = min(n, len(inobj)//tileinfo.size)
+    logging.info(f"{n} {tileinfo} glphys" + \
         (f", with palatte {repr(palette.shape)}" if palette is not None else ""))
-    names = n_glphy*[None]
+    names = n*[None]
     tileimg = np.zeros([tileinfo.h, tileinfo.w, 4], dtype=np.uint8)
-    for i in range(n_glphy):
+    for i in range(n):
         decode_glphy(tiledata[i*tileinfo.size: (i+1)*tileinfo.size], 
             tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, tileimg)
         names.append(extract_glphy(tileimg, outdir, i, tbl))
@@ -459,7 +459,7 @@ def cli(cmdstr=None):
 
     def cmd_font_make(args):
         logging.debug(repr(args))
-        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        tileinfo = tile_t(args.tilew, args.tileh, args.tilebpp, args.tilesize)
         if args.format == "image":
             make_image_font(args.tbl, args.ttfpath, tileinfo, outpath=args.outpath, 
                 n_row=args.n_row, n_render=args.n_render, 
@@ -473,7 +473,7 @@ def cli(cmdstr=None):
 
     def cmd_font_extract(args):
         logging.debug(repr(args))
-        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        tileinfo = tile_t(args.tilew, args.tileh, args.tilebpp, args.tilesize)
         if args.format == "image":
             extract_image_font(args.tbl, args.fontpath, tileinfo, outdir=args.outpath)
         elif args.format == "tile":
@@ -481,7 +481,7 @@ def cli(cmdstr=None):
             if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
             extract_tile_font(args.tbl, args.fontpath, tileinfo, outdir=args.outpath, palette=palette)
 
-    p = argparse.ArgumentParser(description=description)
+    p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
     p_tbl_make = p2.add_parser("tbl_make", help="make the tbl according encoding")
     p_tbl_align = p2.add_parser("tbl_align", help="align the tbl by some gap shift")

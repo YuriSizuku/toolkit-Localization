@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-description = """
+__description__ = """
 A binary text tool (remake) for text exporting, importing and checking
     v0.6, developed by devseed
 """
@@ -600,7 +600,7 @@ def cli(cmdstr=None):
             text_replace=text_replace, text_noeval=args.text_noeval,
             bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=__description__)
     subparsers = parser.add_subparsers(title="operations")
     parser_e = subparsers.add_parser("extract", help="extract text in binfile to ftext")
     parser_i = subparsers.add_parser("insert", help="insert ftext to binfile")

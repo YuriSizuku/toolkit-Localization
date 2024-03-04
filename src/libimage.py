@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-description = """
+__description__ = """
 A image tool (remake) for image encoding or decoding, 
 all the intermediate format is rgba, index in alpha channel
     v0.3, develope by devseed
@@ -288,7 +288,7 @@ def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, o
 def cli(cmdstr=None):
     def cmd_decode(args):
         logging.debug(repr(args))
-        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        tileinfo = tile_t(args.tilew, args.tileh,args.tilebpp, args.tilesize)
         palette = bytes.fromhex(args.palette) if args.palette else None
         if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
         if args.format == "tile":
@@ -297,14 +297,14 @@ def cli(cmdstr=None):
 
     def cmd_encode(args):
         logging.debug(repr(args))
-        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        tileinfo = tile_t(args.tilew, args.tileh,args.tilebpp, args.tilesize)
         palette = bytes.fromhex(args.palette) if args.palette else None
         if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
         if args.format == "tile":
             encode_tile_image(args.inpath, tileinfo, args.outpath, 
                 palette=palette, n_tile=args.n_tile)
 
-    p = argparse.ArgumentParser(description=description)
+    p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
     p_encode = p2.add_parser("encode", help="encode image to bin")
     p_decode = p2.add_parser("decode", help="decode bin to image")
