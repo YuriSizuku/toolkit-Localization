@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 __description__ = """
 A font tool (remake) for tbl and glphy operations
-    v0.3, developed by devseed
+    v0.3.1, developed by devseed
 """
 
 import os
@@ -16,7 +16,7 @@ from typing import Callable, Union, Tuple, List, Dict, Set
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
-__version__ = 300
+__version__ = 310
 
 try:
     from libutil import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile, load_tbl, save_tbl
@@ -152,9 +152,9 @@ def merge_intersect_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
     :params reserved: reserved position for not override
     """
 
-    def iter_avail(notuse: Set, r: range):
+    def iter_avail(nouse: Set, r: range):
         for i in r:
-            if i in notuse: continue
+            if i in nouse: continue
             yield i 
 
     r = range_find
@@ -165,14 +165,16 @@ def merge_intersect_tbl(tbl1: List[tbl_t], tbl2: List[tbl_t],
         return None
 
     t1set, t2set, t12set = diff_tchar_tbl(tbl1, tbl2)
+    t1map = dict((t.tchar, i)for i, t in enumerate(tbl1))
     t2map = dict((t.tchar, i)for i, t in enumerate(tbl2))
     logging.info(f"t1set t2set t3set size=({len(t1set)}, {len(t2set)}, {len(t12set)})")
-    
     tbl3 = copy.deepcopy(tbl1)
-    notuse = reserved | t12set
-    index_add = [t2map[tchar] for tchar in t2set]
-    g = iter_avail(notuse, r)
-    for idx2 in index_add:
+    
+    # mapping tbl2add tchar to tbl1nouse tcode
+    index_tbl1nouse = {t1map[tchar] for tchar in t12set} | reserved
+    index_tbl2add = {t2map[tchar] for tchar in t2set}
+    g = iter_avail(index_tbl1nouse, r)
+    for idx2 in index_tbl2add:
         try:
             idx1 = next(g)
             tbl3[idx1] = tbl_t(tbl1[idx1].tcode, tbl2[idx2].tchar)
@@ -205,30 +207,44 @@ def decode_index_palette(index: np.ndarray, palette: np.ndarray) -> np.ndarray:
 def encode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray):
     h, w = img.shape[0], img.shape[1]
     datasize = h * w * tilebpp // 8
-    if tilebpp >= 24:
+    if tilebpp >= 24: # rgb or rgba color
         tiledata[:datasize] = img[..., :tilebpp//8].ravel()
-    else:
+    else: # index color
         if palette is not None: IDX = encode_index_palette(img, palette)
-        else: IDX = img[..., 3].astype(np.uint16) / 255 * 2**tilebpp
-        if tilebpp <= 8:
+        else: IDX = img[..., 3].astype(np.uint16) * (2**tilebpp - 1) // 255 # use astype to avoid overflow
+        if tilebpp < 8:
             n = 8//tilebpp
             RADIX = np.power(2, np.arange(n, dtype=np.uint8)*tilebpp)
             tiledata[:datasize] = np.sum(IDX.reshape((-1, n)) * RADIX, -1)
-        elif tilebpp==16:
-            tiledata[:datasize] = IDX.ravel()
+        elif tilebpp==8: tiledata[:datasize] = IDX.ravel()
+        else: tiledata[:datasize] = IDX.view(np.uint8).ravel()
 
-def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray):  
+def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette: np.ndarray, img: np.ndarray, cache=True):  
     w, h = tilew, tileh
     datasize = h * w * tilebpp // 8
-    if tilebpp <= 16:
-        if tilebpp <= 8:
+    if tilebpp <= 16: # index color
+        if tilebpp < 8:
             n = 8//tilebpp # 2bpp, 4 index extend in 1bytes
-            Y, X = np.meshgrid(np.arange(tileh, dtype=np.uint32), 
-                               np.arange(tilew, dtype=np.uint32), indexing='ij')
-            POS = Y * tilew + X # (h, w)
-            SHIFT = (POS % n) * tilebpp
-            MASK = ((1<<tilebpp)-1) << SHIFT
+            if cache:
+                if hasattr(decode_glphy, "POS") and decode_glphy.POS is not None:
+                    POS, SHIFT, MASK = decode_glphy.POS, decode_glphy.SHIFT, decode_glphy.MASK
+                else:
+                    Y, X = np.meshgrid(np.arange(tileh, dtype=np.uint32), 
+                                np.arange(tilew, dtype=np.uint32), indexing='ij')
+                    POS = Y * tilew + X # (h, w)
+                    SHIFT = (POS % n) * tilebpp
+                    MASK = ((1<<tilebpp)-1) << SHIFT
+                    decode_glphy.POS, decode_glphy.SHIFT, decode_glphy.MASK = POS, SHIFT, MASK
+            else:
+                if hasattr(decode_glphy, "POS"): decode_glphy.POS = None
+                Y, X = np.meshgrid(np.arange(tileh, dtype=np.uint32), 
+                            np.arange(tilew, dtype=np.uint32), indexing='ij')
+                POS = Y * tilew + X # (h, w)
+                SHIFT = (POS % n) * tilebpp
+                MASK = ((1<<tilebpp)-1) << SHIFT
             IDX = (tiledata[POS//n] & MASK) >> SHIFT # (h, w)
+        elif tilebpp==8:
+            IDX = tiledata.view(np.uint8)
         elif tilebpp==16:
             IDX = tiledata.view(np.uint16)
         if palette is None:                 
@@ -238,9 +254,18 @@ def decode_glphy(tiledata: np.ndarray, tilesize, tilew, tileh, tilebpp, palette:
         else: 
             PIXEL = decode_index_palette(IDX, palette)
         img [:] = PIXEL
-    elif tilebpp >= 24:
+    elif tilebpp >= 24: # rgb or rbga
         n = tilebpp//8
         img[..., :n] = tiledata[:datasize].reshape((h, w, n))
+
+def save_glphy(outpath, img):
+    size = 0
+    if os.path.splitext(outpath)[1].lower() == ".jpg":
+        A = img[..., 3:].astype(np.float32)/255 
+        RGB = img[..., :3].astype(np.float32)/255
+        size = writeimage(outpath, (RGB*A*255).astype(np.uint8), img_format="JPEG")
+    else: size = writeimage(outpath, img, img_format="PNG")
+    return size
 
 @filter_loadfiles(1)
 def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
@@ -287,7 +312,7 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
 @filter_loadfiles(1)
 def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
         tileinfo: tile_t, outpath=None, *, n_render=3, render_size=0, render_shift=(0, 0), 
-        f_encode: Callable=encode_glphy, palette=None) -> np.ndarray:
+        palette=None, f_encode: Callable=encode_glphy) -> np.ndarray:
     """
     :param tblobj: tbl path or tbl object
     :param ttfobj: ttf font path or bytes
@@ -341,11 +366,6 @@ def extract_glphy(tileimg, outdir, i, tbl: List[tbl_t]=None) -> str:
         else: path = os.path.join(path, name)
         return path
         
-    def save_jpg(outpath, tileimg):
-        A = tileimg[..., 3:].astype(np.float32)/255 
-        RGB = tileimg[..., :3].astype(np.float32)/255
-        writeimage(outpath, (RGB*A*255).astype(np.uint8), img_format="JPEG")
-
     if tbl:
         try:
             reject =  {'<', '>', '|', ':', '*', '&', '/', '\\', '"', "'"}
@@ -355,24 +375,25 @@ def extract_glphy(tileimg, outdir, i, tbl: List[tbl_t]=None) -> str:
             name = "".join(list(filter(lambda x: x not in reject, name)))
             if outdir:
                 outpath = join_path(outdir, name + ".jpg")
-                save_jpg(outpath, tileimg)
+                save_glphy(outpath, tileimg)
         except (IOError) as e:
             name = "%05d_u%04X"%(i, ucode) if tbl else "%05d"%(i)
             if outdir:
                 outpath = join_path(outdir, name + ".jpg")
-                save_jpg(outpath, tileimg)
+                save_glphy(outpath, tileimg)
     else:
         name = "%05d"%(i)
-        outpath = join_path(outdir, name + ".jpg")
-        save_jpg(outpath, tileimg)
+        if outdir:
+            outpath = join_path(outdir, name + ".jpg")
+            save_glphy(outpath, tileimg)
     logging.debug(f'[i={i} {repr(tbl[i] if tbl else "")} name={name}]')
     return name
 
 @filter_loadimages((1, "RGBA"))
-def extract_image_font(tblobj: Union[str, List[tbl_t]], 
-        inobj: Union[str, np.ndarray], tileinfo: tile_t, outdir=None) -> List[str]:
+def extract_image_font(tblobj: Union[str, List[tbl_t]], inobj: Union[str, np.ndarray], 
+        tileinfo: tile_t, outpath=None, split_glphy=True) -> Tuple[List[str], np.ndarray]:
     """
-    extract the glphys from image to outdir
+    extract the glphys from image to outdir or outpath
     :param inobj: rgba image
     """
     
@@ -384,19 +405,21 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]],
     n = len(tbl) if tbl else w//tileinfo.w * h//tileinfo.h
     n = min(n, w//tileinfo.w * h//tileinfo.h)
     logging.info(f"extract {n} {tileinfo} glphys")
+    
     names = n*[None]
     for i in range(n):
         x, y = i%n_row*tileinfo.h, i//n_row*tileinfo.w
         tileimg = img[y: y+tileinfo.h, x: x+tileinfo.w, ...]
-        names.append(extract_glphy(tileimg, outdir, i, tbl))
-
-    return names
+        names.append(extract_glphy(tileimg, (outpath if split_glphy else None), i, tbl))
+    if outpath and split_glphy is False: save_glphy(outpath, img)
+    return names, img
 
 @filter_loadfiles(1)
 def extract_tile_font(tblobj: Union[str, List[tbl_t]], 
-        inobj: Union[str, np.ndarray], tileinfo: tile_t, outdir=None, palette=None) -> List[str]:
+        inobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, palette=None, 
+        split_glphy=True, n_row=64, f_decode=decode_glphy) -> Union[List[str], np.ndarray]:
     """
-    extract the glphys from tiles to outdir
+    extract the glphys from tiles to outpath or outdir
     :param inobj: tiledata
     """
 
@@ -407,14 +430,19 @@ def extract_tile_font(tblobj: Union[str, List[tbl_t]],
     n = min(n, len(inobj)//tileinfo.size)
     logging.info(f"{n} {tileinfo} glphys" + \
         (f", with palatte {repr(palette.shape)}" if palette is not None else ""))
+    
+    img = None
     names = n*[None]
-    tileimg = np.zeros([tileinfo.h, tileinfo.w, 4], dtype=np.uint8)
+    h, w = (n + n_row - 1)//n_row * tileinfo.h , n_row * tileinfo.w
+    img = np.zeros((h, w, 4), dtype=np.uint8)
     for i in range(n):
-        decode_glphy(tiledata[i*tileinfo.size: (i+1)*tileinfo.size], 
+        x, y = i%n_row * tileinfo.w, i//n_row * tileinfo.h
+        tileimg = img[y: y+tileinfo.h, x: x+tileinfo.w, ...]
+        f_decode(tiledata[i*tileinfo.size: (i+1)*tileinfo.size], 
             tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, tileimg)
-        names.append(extract_glphy(tileimg, outdir, i, tbl))
-
-    return names
+        names.append(extract_glphy(tileimg, (outpath if split_glphy else None), i, tbl))
+    if outpath and split_glphy is False: save_glphy(outpath, img)
+    return names, img
 
 def cli(cmdstr=None):
     def cmd_tbl_replace(tbl, tchar_replace, tcode_encoding):
@@ -475,11 +503,13 @@ def cli(cmdstr=None):
         logging.debug(repr(args))
         tileinfo = tile_t(args.tilew, args.tileh, args.tilebpp, args.tilesize)
         if args.format == "image":
-            extract_image_font(args.tbl, args.fontpath, tileinfo, outdir=args.outpath)
+            extract_image_font(args.tbl, args.fontpath, tileinfo, 
+                outpath=args.outpath, split_glphy=args.split_glphy)
         elif args.format == "tile":
             palette = bytes.fromhex(args.palette) if args.palette else None
             if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
-            extract_tile_font(args.tbl, args.fontpath, tileinfo, outdir=args.outpath, palette=palette)
+            extract_tile_font(args.tbl, args.fontpath, tileinfo, outpath=args.outpath, 
+                palette=palette, split_glphy=args.split_glphy)
 
     p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
@@ -537,6 +567,7 @@ def cli(cmdstr=None):
         metavar=("x", "y"), default=(0, 0), help="render shift in a glphy")
     p_font_extract.set_defaults(handler=cmd_font_extract)
     p_font_extract.add_argument("fontpath")
+    p_font_extract.add_argument("--split_glphy", action="store_true", help="split glphy into seperate files")
 
     args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
@@ -564,4 +595,5 @@ v0.2.3, fix some problem of encoding, img to tile font alpha value
 v0.2.4, add typing hint and rename some functions
 v0.2.5, add combine_tbls, update_tbls function for tbl pages
 v0.3, remake according to libtext v0.6, add cli support
+v0.3.1, fix bugs and make cache on decode_glphy, add split_glphy option
 """

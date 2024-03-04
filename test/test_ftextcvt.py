@@ -24,8 +24,9 @@ class TestDocx(unittest.TestCase):
     def test_file_com001(self):
         tmppath = tempfile.NamedTemporaryFile("wb+")
         ftextlines = util.readlines(util.readbytes(paths_ftext["COM001"]))
-        doc = ftextcvt.ftext2docx(ftextlines, tmppath)
+        document = ftextcvt.ftext2docx(ftextlines, tmppath)
         ftextlines2 = ftextcvt.docx2ftext(tmppath)
+        tmppath.close()
         assert_lines(self, ftextlines, ftextlines2)
 
 class TestPretty(unittest.TestCase):
