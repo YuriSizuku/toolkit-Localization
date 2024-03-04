@@ -98,13 +98,18 @@ python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tb
 mkdir -p "project/pysrc_all/build/com001_font24" 
 mkdir -p "project/pysrc_all/build/it"
 python src/libfont.py font_extract --format image "project/pysrc_all/build/com001_font24.png" -o "project/pysrc_all/build/com001_font24" --tilew 24 --tileh 24
-python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize=92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 
 ```
 
 ### libimage
 
 ```shell
+# encode tile to image
+python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff" 
+
+# encode image to 1 tile
+python src/libimage.py encode --format tile "project/pysrc_all/build/it_decode.png" -o "project/pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 ```
 
 ### ftextpack, ftextcvt
@@ -179,8 +184,8 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
 * [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 * [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta)
-* [ ] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
-* [ ] remake `libword.py`, [v0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
+* [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
+* [ ] remake `libword.py`, [v0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [ ] add collated batch files input to improve io performance
 
 ## History

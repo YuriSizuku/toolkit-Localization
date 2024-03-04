@@ -15,7 +15,7 @@ test_libtext()
 
 test_libfont()
 {
-    # test tbl
+    echo "## test_libfont tbl"
     python src/libfont.py tbl_make cp932 --tchar_replace "亜" "亚" -o "project/pysrc_all/build/sjis.tbl"
     python src/libfont.py tbl_make cp932 --tcode_encoding "utf-8" -o "project/pysrc_all/build/sjis_utf8.tbl"
     python src/libfont.py tbl_make cp936 -o "project/pysrc_all/build/gb2312.tbl"
@@ -23,14 +23,16 @@ test_libfont()
     python src/libfont.py tbl_merge "project/pysrc_all/build/sjis.tbl" "project/pysrc_all/build/sjis_align.tbl" -o "project/pysrc_all/build/sjis_merge.tbl"
     python src/libfont.py tbl_merge --intersect "project/pysrc_all/build/sjis.tbl" "project/pysrc_all/build/gb2312.tbl" -o "project/pysrc_all/build/sjis_gb2312_merge.tbl" --range_reserve 0 70
 
-    # test extract glphy
+    echo "## test_libfont font"
     mkdir -p "project/pysrc_all/build/it"
     python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize=92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 }
 
 test_libimage()
 {
-    echo
+    echo "## test_libimage"
+    python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff" 
+    python src/libimage.py encode --format tile "project/pysrc_all/build/it_decode.png" -o "project/pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 }
 
 test_libword()

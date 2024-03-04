@@ -81,12 +81,12 @@ class TestManipulateTbl(unittest.TestCase):
 
 class TesttMakeFont(unittest.TestCase):
     def test_example_glphy4(self):
-        tile = tile_t(10, 10, 4, 10*10//2)
-        tmp = np.linspace(0, 0xff, 2**tile.bpp, dtype=np.uint8).transpose()
+        tileinfo = tile_t(10, 10, 4, 10*10//2)
+        tmp = np.linspace(0, 0xff, 2**tileinfo.bpp, dtype=np.uint8).transpose()
         palatte = np.column_stack([tmp, tmp, tmp, tmp])
         
         # test palatte decode encode
-        idx1 = np.zeros([tile.h, tile.w], dtype=np.uint8)
+        idx1 = np.zeros([tileinfo.h, tileinfo.w], dtype=np.uint8)
         for y in range(idx1.shape[0]):
             for x in range(idx1.shape[1]):
                 idx1[y][x] = (y + x) % 16
@@ -96,21 +96,21 @@ class TesttMakeFont(unittest.TestCase):
         
         # test glphy decode encode
         img2 = np.zeros_like(img1)
-        tiledata = np.zeros(idx1.shape[0] * idx1.shape[1] * tile.bpp // 8, dtype=np.uint8)
-        libfont.encode_glphy(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img1)
+        tiledata = np.zeros(idx1.shape[0] * idx1.shape[1] * tileinfo.bpp // 8, dtype=np.uint8)
+        libfont.encode_glphy(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palatte, img1)
         self.assertGreater(tiledata.max(), 0)
         for i in range(tiledata.shape[0]):
             v = idx1.ravel()
-            d = v[2*i] + (v[2*i+1]<<tile.bpp)
+            d = v[2*i] + (v[2*i+1]<<tileinfo.bpp)
             self.assertEqual(tiledata[i], d)
-        libfont.decode_glphy(tiledata, tile.size, tile.w, tile.h, tile.bpp, palatte, img2)
+        libfont.decode_glphy(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palatte, img2)
         self.assertTrue(np.array_equal(img1, img2))
 
     def test_example_makeimagefont(self):
         if sys.platform != "win32": return
         outpath = None
         img = libfont.make_image_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
-                tile=tile_t(24, 24), outpath=outpath, render_size=24)
+                tileinfo=tile_t(24, 24), outpath=outpath, render_size=24)
         self.assertGreater(img.max(), 0)
         self.assertEqual(img.min(), 0)
 
@@ -118,7 +118,7 @@ class TesttMakeFont(unittest.TestCase):
         if sys.platform != "win32": return
         outpath = None
         tiledata = libfont.make_tile_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
-                tile=tile_t(24, 24, 4), outpath=outpath, render_size=24)
+                tileinfo=tile_t(24, 24, 4), outpath=outpath, render_size=24)
         self.assertGreater(tiledata.max(), 0)
         self.assertEqual(tiledata.min(), 0)
 
@@ -130,7 +130,7 @@ class TestExtractFont(unittest.TestCase):
     def test_com001_extractimagefont(self):
         if sys.platform != "win32": return
         img = libfont.make_image_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
-                tile=tile_t(24, 24), render_size=24, n_render=1)
+                tileinfo=tile_t(24, 24), render_size=24, n_render=1)
         outdir = None if True else "project/pysrc_all/build/com001"
         libfont.extract_image_font(paths_tbl["COM001"], img, tile_t(24, 24), outdir=outdir)
 

@@ -171,7 +171,7 @@ def filter_loadfiles(targets: Union[int, str, List]=None):
 
 def filter_loadimages(targets: Union[int, str, List]=None):
     """
-    :params targets: can be 0, 'k', [0], [(0, 'png', 'format', palette), 'k'], 
+    :params targets: can be 0, 'k', [0], [(0, 'RGBA', 'png', palette), 'k'], 
     """
     
     if targets == None: targets = [0]
@@ -223,6 +223,16 @@ class msg_t:
     id: int = 0
     msg: str = ""
     type: int = 0
+
+# check function
+def valid_tile(info: tile_t, shape=None):
+    if shape:
+        if info.h <= 0: info.h = shape[0]
+        if info.w <= 0: info.w = shape[1]
+        if info.bpp == 0: info.bpp = 8 if len(shape) <3 else shape[2]*8
+    else:
+        if info.h <=0: info.h = info.w
+    if info.size <=0: info.size = int((info.h * info.w * info.bpp + 7)// 8)
 
 # serilization functions
 def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], 

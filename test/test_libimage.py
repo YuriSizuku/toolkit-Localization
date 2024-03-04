@@ -32,26 +32,26 @@ class TestTileImage(unittest.TestCase):
             [0xFF, 0xFF, 0xFF, 0xFF]
         ], dtype=np.uint8)
         n_tile = 3561
-        tile = libutil.tile_t(20, 18, 2, (20*18)//4+2)
-        datasize = n_tile*tile.bpp
+        tileinfo = libutil.tile_t(20, 18, 2, (20*18)//4+2)
+        datasize = n_tile*tileinfo.bpp
         
         # test encode decode without palatte
         for i in range(1):
             start = time.time()
-            img = libimage.decode_tile_image(data, tile=tile, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile}")
+            img = libimage.decode_tile_image(data, tileinfo=tileinfo, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tileinfo}")
             start = time.time()
-            data2 =libimage.encode_tile_image(img, tile=tile, n_tile=n_tile)
+            data2 =libimage.encode_tile_image(img, tileinfo=tileinfo, n_tile=n_tile)
             self.assertTrue(np.array_equal(data[:datasize], data2[:datasize]))
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile}")
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tileinfo}")
 
             # test encode decode with palatte
             start = time.time()
-            img = libimage.decode_tile_image(data, tile=tile, palette=palatte, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tile} (with palatte)")
+            img = libimage.decode_tile_image(data, tileinfo=tileinfo, palette=palatte, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for decode_tile_img with {tileinfo} (with palatte)")
             start = time.time()
-            data2 =libimage.encode_tile_image(img, tile=tile, palette=palatte, n_tile=n_tile)
-            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tile} (with palatte)")
+            data2 =libimage.encode_tile_image(img, tileinfo=tileinfo, palette=palatte, n_tile=n_tile)
+            print(i+1, f"{(time.time()-start)*1000: .4f} ms for enocde_tile_img with {tileinfo} (with palatte)")
             self.assertTrue(np.array_equal(data[:datasize], data2[:datasize]))
             # Image.fromarray(img).save("project/pyexe_libtext/build/it.png")
 

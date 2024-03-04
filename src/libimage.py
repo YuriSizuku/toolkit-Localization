@@ -1,4 +1,5 @@
-"""
+# -*- coding: utf-8 -*-
+description = """
 A image tool (remake) for image encoding or decoding, 
 all the intermediate format is rgba, index in alpha channel
     v0.3, develope by devseed
@@ -6,8 +7,9 @@ all the intermediate format is rgba, index in alpha channel
 
 import math
 import logging
+import argparse
 from queue import Queue
-from typing import Tuple
+from typing import Union
 
 import numba
 import numpy as np
@@ -15,9 +17,9 @@ from numba import njit, prange, void, uint8, int32
 readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
 
 try:
-    from libutil import tile_t, filter_loadfiles, filter_loadimages
+    from libutil import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile
 except ImportError:
-    exec("from libutil_v600 import tile_t, filter_loadfiles, filter_loadimages")
+    exec("from libutil_v600 import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile")
 
 __version__ = 300
 
@@ -227,8 +229,9 @@ def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palette, img):
                     pixel[:] = palette[d]
 
 #  wrappers for image convert
-def encode_tile_image(img: np.ndarray, tile: tile_t, *, 
-        palette: np.ndarray=None, n_tile=None) -> np.ndarray:
+@filter_loadimages((0, "RGBA"))
+def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, *, 
+        palette: np.ndarray=None, n_tile=0) -> np.ndarray:
     """
     encode tile image wrapper
     :param tile: (w, h, bpp, size)
@@ -238,48 +241,96 @@ def encode_tile_image(img: np.ndarray, tile: tile_t, *,
     """
 
     # init tile
+    img = imgobj
     imgw, imgh = img.shape[1], img.shape[0]
-    n =  imgw // tile.w * imgh // tile.h
+    valid_tile(tileinfo, img.shape)
+    n =  imgw // tileinfo.w * imgh // tileinfo.h
     if n_tile> 0: n = min(n, n_tile)
-    if tile.size <=0: tile.size = (tile.h * tile.w * tile.bpp + 7)// 8
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
-    tiledata = np.zeros(n*tile.size, dtype=np.uint8)
+    tiledata = np.zeros(n*tileinfo.size, dtype=np.uint8)
     
     # init image and decode
-    logging.info(f"image {img.shape} -> {n} tile {tile.w}x{tile.h} {tile.bpp}bpp")
-    encode_tiles(tiledata, tile.size, tile.w, tile.h, tile.bpp, palette, img)
+    logging.info(f"image {img.shape} -> {n} {repr(tileinfo)}")
+    encode_tiles(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, img)
+    if outpath: writebytes(outpath, tiledata.tobytes())
 
     return tiledata
 
-def decode_tile_image(binobj: bytes, tile: tile_t, *, 
-        palette: np.ndarray=None, n_tile=None, n_row=64) -> np.ndarray:
+@filter_loadfiles(0)
+def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, outpath=None, *, 
+        palette: np.ndarray=None, n_tile=0, n_row=64) -> np.ndarray:
     """
     decode tile image wrapper
     :param tile: (w, h, bpp, size)
     :param palette: ndarray (n,4)
-    :param n_row: the count of tiles in a row
     :param n_tile: the count of whole tiles
+    :param n_row: the count of tiles in a row
     :return: img in rbga format
     """
 
     # init tile
-    n =  math.floor(len(binobj)*8/tile.bpp/tile.h/tile.w)
+    valid_tile(tileinfo)
+    n = len(binobj) // tileinfo.size
     if n_tile> 0: n = min(n, n_tile)
-    if tile.size <=0: tile.size = (tile.h * tile.w * tile.bpp + 7)// 8
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
-    if type(binobj) == np.ndarray: tiledata = binobj[:n*tile.size]
-    else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tile.size)
+    if type(binobj) == np.ndarray: tiledata = binobj[:n*tileinfo.size]
+    else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tileinfo.size)
     
     # init image and decode
-    imgw, imgh = tile.w * n_row, tile.h * math.ceil(n/n_row)
+    imgw, imgh = tileinfo.w * n_row, tileinfo.h * math.ceil(n/n_row)
     img = np.zeros([imgh, imgw, 4], dtype='uint8')
-    logging.info(f"{n} tile {tile.w}x{tile.h} {tile.bpp}bpp -> image {img.shape}")
-    decode_tiles(tiledata, tile.size, tile.w, tile.h, tile.bpp, palette, img)
+    logging.info(f"{n} {repr(tileinfo)} -> image {img.shape}")
+    decode_tiles(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, img)
+    if outpath: writeimage(outpath, img, "RGBA", "png")
 
     return img
 
 def cli(cmdstr=None):
-    pass
+    def cmd_decode(args):
+        logging.debug(repr(args))
+        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        palette = bytes.fromhex(args.palette) if args.palette else None
+        if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
+        if args.format == "tile":
+            decode_tile_image(args.inpath, tileinfo, args.outpath, 
+                palette=palette, n_tile=args.n_tile, n_row=args.n_row)
+
+    def cmd_encode(args):
+        logging.debug(repr(args))
+        tileinfo = tile_t(args.tilew, args.tileh,args. tilebpp, args.tilesize)
+        palette = bytes.fromhex(args.palette) if args.palette else None
+        if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
+        if args.format == "tile":
+            encode_tile_image(args.inpath, tileinfo, args.outpath, 
+                palette=palette, n_tile=args.n_tile)
+
+    p = argparse.ArgumentParser(description=description)
+    p2 = p.add_subparsers(title="operations")
+    p_encode = p2.add_parser("encode", help="encode image to bin")
+    p_decode = p2.add_parser("decode", help="decode bin to image")
+    for t in [p_encode, p_decode]:
+        t.add_argument("-o", "--outpath", default="out")
+        t.add_argument("--log_level", default="info", help="set log level", 
+            choices=("none", "critical", "error", "warnning", "info", "debug"))
+        t.add_argument("--format", default="tile", choices=["tile"], help="output format")
+        t.add_argument("--palette", type=str, default=None)
+        t.add_argument("--tilew", type=int, default=0)
+        t.add_argument("--tileh", type=int, default=0)
+        t.add_argument("--tilebpp", type=int, default=0)
+        t.add_argument("--tilesize",type=int , default=0)
+        t.add_argument("--n_tile",type=int , default=0)
+    p_encode.set_defaults(handler=cmd_encode)
+    p_encode.add_argument("inpath")
+    p_decode.set_defaults(handler=cmd_decode)
+    p_decode.add_argument("inpath")
+    p_decode.add_argument("--n_row",type=int , default=64)
+
+    args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
+    loglevel = args.log_level if hasattr(args, "log_level") else "info"
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+                    format="%(levelname)s:%(funcName)s: %(message)s")
+    if hasattr(args, "handler"): args.handler(args)
+    else: p.print_help()
 
 if __name__ == '__main__':
     cli()
