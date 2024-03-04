@@ -25,7 +25,8 @@ test_libfont()
 
     echo "## test_libfont font"
     mkdir -p "project/pysrc_all/build/it"
-    python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize=92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+    python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --split_glphy --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+    python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it.jpg" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 }
 
 test_libimage()

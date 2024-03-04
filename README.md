@@ -97,8 +97,9 @@ python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tb
 # extract glphy operation
 mkdir -p "project/pysrc_all/build/com001_font24" 
 mkdir -p "project/pysrc_all/build/it"
-python src/libfont.py font_extract --format image "project/pysrc_all/build/com001_font24.png" -o "project/pysrc_all/build/com001_font24" --tilew 24 --tileh 24
-python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+python src/libfont.py font_extract --format image "project/pysrc_all/build/com001_font24.png" -o "project/pysrc_all/build/com001_font24" --split_glphy --tilew 24 --tileh 24
+python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --split_glphy --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it.jpg" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 
 ```
 
@@ -140,7 +141,7 @@ Inside the ftext, `\r` and `\n` are replaced to `[\r]` and `[\n]`. We also use `
 ●00003|0001FD|00A● 时值夏日。{{b'\xff'}}
 
 ○00004|000253|068○ 残月島にある唯一の街\n『@r紅霞市（こうかし）@0』では、ここ最近の不況が嘘のように盛り上がりを見せていた。
-●00004|000253|068● 在残月岛{{'唯一'.encoding('sjis')}}的市区“@r红霞市@0”里，近来经济之萧条每况愈下，已是人心惶惶。
+●00004|000253|068● 在残月岛{{'唯一'.encode('sjis')}}的市区“@r红霞市@0”里，近来经济之萧条每况愈下，已是人心惶惶。
 
 ○00005|000307|056○ 『@r花柳街（かりゅうがい）@0』の一郭に存在する置屋に、上流階級のお客様が現れたからだ。
 ●00005|000307|056● 因为有上流社会的客人来到了@r花柳街@0某郭的置屋。
@@ -183,9 +184,9 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
 * [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
 * [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
-* [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta)
+* [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta), [0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
-* [ ] remake `libword.py`, [v0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
+* [ ] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [ ] add collated batch files input to improve io performance
 
 ## History

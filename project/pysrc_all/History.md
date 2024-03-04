@@ -32,6 +32,22 @@ v0.6, remake to increase speed and simplify functions
 
 ```shell
 # `futil.py` ->
+history:
+v0.1, initial version
+v0.1.5, add function save_tbl, fix px48->pt error
+v0.1.6, add gray2tilefont, tilefont2gray
+v0.1.7. slightly change some function
+v0.1.8. add generate_sjis_tbl, merge tbl, find_adding_char
+v0.2, add extract_glphys from font image, 
+     rebuild_tbl, merge two tbl with the same position of the same char
+v0.2.1, align_tbl, manualy align tbl for glphys 
+       by the adding offset(+-) at some position  
+v0.2.2, replace_char, to replace useless char to new char in tbl
+v0.2.3, fix some problem of encoding, img to tile font alpha value
+v0.2.4, add typing hint and rename some functions
+v0.2.5, add combine_tbls, update_tbls function for tbl pages
+v0.3, remake according to libtext v0.6, add cli support
+v0.3.1, fix bugs and make cache on decode_glphy, add split_glphy option
 ```
 
 * `libimage.py`

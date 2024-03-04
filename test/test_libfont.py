@@ -103,7 +103,7 @@ class TesttMakeFont(unittest.TestCase):
             v = idx1.ravel()
             d = v[2*i] + (v[2*i+1]<<tileinfo.bpp)
             self.assertEqual(tiledata[i], d)
-        libfont.decode_glphy(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palatte, img2)
+        libfont.decode_glphy(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palatte, img2, cache=False)
         self.assertTrue(np.array_equal(img1, img2))
 
     def test_example_makeimagefont(self):
@@ -125,14 +125,14 @@ class TesttMakeFont(unittest.TestCase):
 class TestExtractFont(unittest.TestCase):
     def test_it_extracttilefont(sellf):
         libfont.extract_tile_font(paths_tbl["COM001"], paths_bin["it"], 
-            tile_t(20, 18, 2, 20*18//4+2), outdir=None)
+            tile_t(20, 18, 2, 20*18//4+2), outpath=None)
         
     def test_com001_extractimagefont(self):
         if sys.platform != "win32": return
         img = libfont.make_image_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
                 tileinfo=tile_t(24, 24), render_size=24, n_render=1)
         outdir = None if True else "project/pysrc_all/build/com001"
-        libfont.extract_image_font(paths_tbl["COM001"], img, tile_t(24, 24), outdir=outdir)
+        libfont.extract_image_font(paths_tbl["COM001"], img, tile_t(24, 24), outpath=outdir)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(funcName)s: %(message)s")
