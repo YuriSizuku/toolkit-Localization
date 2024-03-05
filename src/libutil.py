@@ -147,7 +147,7 @@ def writeimage(outobj: Union[str, BytesIO], img, pixel_format=None, img_format="
 
 def filter_loadfiles(targets: Union[int, str, List]=None):
     """
-    :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore'), 'k'], 
+    :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore', False), 'k'], 
     """
     
     if targets == None: targets = [0]

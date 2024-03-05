@@ -1,134 +1,72 @@
  # -*- coding: utf-8 -*-
-"""
-A word tool for text manipulate, such as match text, text length, etc.
-    v0.2.2, developed by devseed
+__description__ = """
+A word tool for text operation, such as match, count
+    v0.3, developed by devseed
 """
 
-import re
+import csv
 import codecs
+import logging
+import argparse
 from io import StringIO
-from typing import Callable, Tuple, Union, List, Dict
+from collections import Counter
+from typing import Callable, Tuple, List
 
-LIBRAWTEXT_VERSION = 220
+import numpy as np
 
-# util functions
-def dump_ftext(ftexts1:List[Dict[str,Union[int,str]]], 
-    ftexts2: List[Dict[str, Union[int, str]]], 
-    outpath: str="", *, num_width=5, 
-    addr_width=6, size_width=3) -> List[str]:
+try:
+    from libutil import writelines, writebytes, filter_loadfiles, load_ftext
+except ImportError:
+    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, load_ftext")
+
+__version__ = 300
+
+# algorithms for string
+def calc_lcs(s1: str, s2: str, cache_max=256) -> int:
     """
-    ftexts1, ftexts2 -> ftext lines
-    text dict is as {'addr':, 'size':, 'text':}
-    :param ftexts1[]: text dict array in '○' line, 
-    :param ftexts2[]: text dict array in '●' line
-    :return: ftext lines
-    """
-
-    if num_width==0:
-        num_width = len(str(len(ftexts1)))
-    if addr_width==0:
-        d = max([t['addr'] for t in ftexts1])
-        addr_width = len(hex(d))-2
-    if size_width==0:
-        d = max([t['size'] for t in ftexts1])
-        size_width = len(hex(d))-2
-
-    fstr1 = "○{num:0"+ str(num_width) + "d}|{addr:0" + str(addr_width) + "X}|{size:0"+ str(size_width) + "X}○ {text}\n"
-    fstr2 = fstr1.replace('○', '●')
-    lines = []
-
-    length = 0
-    if ftexts1 == None: 
-        length = len(ftexts2)
-        fstr2 += '\n'
-    if ftexts2 == None: 
-        length = len(ftexts1)
-        fstr1 += '\n'
-    if ftexts1 != None and ftexts2 != None : 
-        length = min(len(ftexts1), len(ftexts2))
-        fstr2 += '\n'
-
-    for i in range(length):
-        if ftexts1 != None:
-            t1 = ftexts1[i]
-            lines.append(fstr1.format(
-                num=i,addr=t1['addr'],size=t1['size'],text=t1['text']))
-        if ftexts2 != None:
-            t2 = ftexts2[i]
-            lines.append(fstr2.format(
-                num=i,addr=t2['addr'],size=t2['size'],text=t2['text']))
-
-    if outpath != "":
-        with codecs.open(outpath, 'w', 'utf-8') as fp:
-            fp.writelines(lines)
-    return lines 
-
-def load_ftext(ftextobj: Union[str, List[str]], 
-    only_text = False ) -> List[Dict[str, Union[int, str]]]:
-    """
-    ftext lines  -> ftexts1, ftexts2
-    text dict is as {'addr':, 'size':, 'text':}
-    :param inobj: can be path, or lines[] 
-    :return: ftexts1[]: text dict array in '○' line, 
-             ftexts2[]: text dict array in '●' line
+    longeset common sequence length of s1 and s2
     """
 
-    ftexts1, ftexts2 = [], []
-    if type(ftextobj) == str: 
-        with codecs.open(ftextobj, 'r', 'utf-8') as fp: 
-            lines = fp.readlines()
-    else: lines = ftextobj
-
-    if only_text == True: # This is used for merge_text
-        re_line1 = re.compile(r"^○(.+?)○[ ](.*)")
-        re_line2 = re.compile(r"^●(.+?)●[ ](.*)")
-        for line in lines:
-            line = line.strip("\n").strip('\r')
-            m = re_line1.match(line)
-            if m is not None:
-                ftexts1.append({'addr':0,'size':0,'text': m.group(2)})
-            m = re_line2.match(line)
-            if m is not None:
-                ftexts2.append({'addr':0,'size':0,'text': m.group(2)})
-    else:
-        re_line1 = re.compile(r"^○(\d*)\|(.+?)\|(.+?)○[ ](.*)")
-        re_line2 = re.compile(r"^●(\d*)\|(.+?)\|(.+?)●[ ](.*)")
-        for line in lines:
-            line = line.strip("\n").strip('\r')
-            m = re_line1.match(line)
-            if m is not None:
-                ftexts1.append({'addr':int(m.group(2),16),
-                'size':int(m.group(3),16),'text': m.group(4)})
-            m = re_line2.match(line)
-            if m is not None:
-                ftexts2.append({'addr':int(m.group(2),16),
-                'size':int(m.group(3),16),'text': m.group(4)})
-    return ftexts1, ftexts2
-
-# libtext functions
-def lcs(s1:str, s2:str) -> List[List[int]]:
-    """
-    calculate the longeset common sequence legth of s1 and s2
-    """
     l1, l2 = len(s1), len(s2)
     if l1 == 0: return l2
     if l2 == 0: return l1
-    res = [[0 for j in range(l2+1)] for i in range(l1+1)]
+    if cache_max <= 0:
+        res = np.zeros((l1+1, l2+1), dtype=np.uint16)
+        calc_lcs._res = None                                                                             
+    else:
+        if not hasattr(calc_lcs, "_res") or calc_lcs._res is None or calc_lcs._res.shape[0] < cache_max:
+            res = np.zeros((cache_max, cache_max), dtype=np.uint16)
+            calc_lcs._res = res
+        else: 
+            res = calc_lcs._res
+            res[:l1+1, :l2+1].fill(0)
+
+    res[:l1+1, :l2+2].fill(0)
     for i in range(1, l1+1):
         for j in range(1, l2+1):
             if s1[i-1] == s2[j-1]: res[i][j] = res[i-1][j-1] + 1
             else: res[i][j] = max(res[i-1][j], res[i][j-1])
-    return res[-1][-1]
+    return res[l1][l2]
 
-def distance_lcs(s1: str, s2: str) -> int:
-    return len(s1) + len(s2) - 2 * lcs(s1, s2)
-
-def distance_Levenshtein(s1: str, s2: str) -> int:
+def calc_lev(s1: str, s2: str, cache_max=256) -> int:
+    """
+    Levenshtein distance (edit value)
+    """
     
     l1, l2 = len(s1), len(s2)
     if l1 == 0: return l2
     if l2 == 0: return l1
-    res = [[0 for j in range(l2)] for i in range(l1)]
+    if cache_max <= 0:
+        res = np.zeros((l1, l2), dtype=np.uint16)
+        calc_lev._res = None
+    else:
+        if not hasattr(calc_lev, "_res") or calc_lev._res is None or calc_lev._res.shape[0] < cache_max:
+            res = np.zeros((cache_max, cache_max), dtype=np.uint16)
+            calc_lev._res = res
+        else: 
+            res = calc_lev._res
+            res[:l1, :l2].fill(0)
+    
     for i in range(0, l1):
         for j in range(0, l2):
             if min(i, j) == 0: # empty string, insert all in s1
@@ -140,90 +78,141 @@ def distance_Levenshtein(s1: str, s2: str) -> int:
                     res[i][j-1] + 1, # delete 1 char in s1
                     res[i-1][j-1] + t # replace 1 char in s1 if s1[1] != s2[j]
                 )
-    return res[-1][-1]
+    return res[l1-1][l2-1]
 
-def match_texts(texts1: List[str], 
-    texts2: List[str], max_ratio=0.1, max_dist=-1, *, 
-    f_dist: Callable[[str, str], int]=None, 
-    f_threshod: Callable[[str, str, int], bool]=None)\
-    -> Tuple[List[int], List[int]]:
+# text operation
+@filter_loadfiles([(0, "utf-8", "ignore", True), (1, "utf-8", "ignore", True)])
+def match_line(lines1obj: List[str], lines2obj: List[str], *, 
+    f_distance: Callable[[str, str], int]=None, 
+    f_theshod: Callable[[str, str, int], bool]=None) -> Tuple[np.ndarray, np.ndarray]:
     """
-    match the texts1 with texts2 by edit_distance_lcs
-    :param max_ratio: the threshod ratio in matching, dist/len(text1), 
-    :param max_dist: the threshod distance in matching,  -1 main all length accept
-    :param f_dist: f_dist(s1, s2), calculate the distance of two text
-    :param f_theshod:  f_theshod(t1, t2, dist), if skip match, return False
-    :return: texts1_match, texts2_match. The position list, if not matched, index -1
+    match the lines1 and lines 2 by calculate the distance
+    :param f_distance: f_distance(s1, s2), calculate the distance of two text
+    :param f_theshod:  f_theshod(s1, s2, d), if skip match, return False
+    :return: (l1match, l2match), for record index, -1 for no match 
     """ 
 
-    def _defalut_threshod(t1, t2, dist):
-        if dist/len(t1) > max_ratio: return False
-        if max_dist != -1 and dist > max_dist: return False
+    def distance(s1, s2) -> int:
+        return len(s1) + len(s2) - 2*calc_lcs(s1, s2) 
 
-    if f_dist == None: f_dist = distance_Levenshtein
-    if f_threshod == None: f_threshod = _defalut_threshod
-    texts1_match = [-1] * len(texts1)
-    texts2_match = [-1] * len(texts2)
-    for i, t1 in enumerate(texts1):
-        min_idx = -1
-        min_dist = -1
-        for j, t2 in enumerate(texts2):
-            if texts2_match[j] != -1: continue
-            dist = f_dist(t1, t2)
-            if dist == 0:
-                min_idx = j
-                break
-            if f_threshod(t1, t2, dist) is False: continue
+    def threshod(s1, s2, d) -> bool:
+        l1, l2 = len(s1), len(s2)
+        if max(d/l1, d/l2) < 0.1: return True
+        if abs(abs(l1-l2) - d) <= 2: return True
+        return False
 
-            if min_idx == -1:
-                min_idx = j
-                min_dist = dist
+    lines1, lines2 = lines1obj, lines2obj
+    line1_match = -np.ones(len(lines1), dtype=np.int32)
+    line2_match = -np.ones(len(lines2), dtype=np.int32)
+    if f_distance == None: f_distance = distance
+    if f_theshod == None: f_theshod = threshod
+    for i1, s1 in enumerate(lines1):
+        i2min, dmin = 0, 0x7fffffff
+        for i2, s2 in enumerate(lines2):
+            d = f_distance(s1, s2)
+            if d < dmin: 
+                i2min, dmin = i2, d
+                if d==0: break
+            elif d == dmin and line2_match[i2] < 0:
+                i2min, dmin = i2, d
+        if f_theshod(s1, s2, dmin): 
+            line1_match[i1], line2_match[i2min] = i2min, i1
+    return line1_match, line2_match
+
+@filter_loadfiles((0, "utf-8", "ignore", True))
+def count_char(linesobj: List[str]) -> Counter:
+    """
+    count the char in lines
+    :param linesobj: lines or file name
+    :return: char counter
+    """
+    
+    words_counter =  Counter()
+    lines = linesobj
+    for line in lines:
+        for c in line:
+            words_counter[c] += 1
+
+    return words_counter
+
+def cli(cmdstr=None):
+    def cmd_match(args):
+        logging.debug(repr(args))
+        if args.format == "text":
+           inobj1, inobj2 = args.inpath1, args.inpath2
+        elif args.format in ("ftext_org", "ftext_now"):
+            if args.format == "ftext_org":
+                inobj1, _ = load_ftext(args.inpath1)
+                inobj2, _ = load_ftext(args.inpath2)
             else:
-                if dist < min_dist:
-                    min_idx = j
-                    min_dist = dist
-                elif dist == min_dist:
-                    if abs(j-i) < abs(min_idx-i):
-                        min_idx = j
-                        min_dist = dist
-        if min_idx != -1:
-            texts1_match[i] = min_idx
-            texts2_match[min_idx] = i
+                _, inobj1 = load_ftext(args.inpath1)
+                _, inobj2 = load_ftext(args.inpath2)
+            inobj1, inobj2 = [t.text for t in inobj1], [t.text for t in inobj2]
+            t1match, _ = match_line(inobj1, inobj2)
 
-    return texts1_match, texts2_match 
+        sbufio = StringIO()
+        wr = csv.DictWriter(sbufio, ["index1", "index2", "text1", "text2"])
+        wr.writeheader()
+        for i1 in range(t1match.shape[0]):
+            i2 = t1match[i1]
+            text1, text2 = inobj1[i1], None if i2 < 0 else inobj2[i2]
+            t = {"index1": i1, "index2": i2, "text1": text1, "text2": text2}
+            wr.writerow(t)
+            logging.info(t)
+        if args.outpath:
+            writebytes(args.outpath, codecs.BOM_UTF8 + writelines([sbufio.getvalue()]))
 
-def count_textglphy(text: str) -> Dict[str, int]:
-    """
-    :param text, the text to count glphy
-    :param sort_order, 0, no sort, 1 order, -1 reverse order
-    """
-    glphy_map = dict()
-    for c in text:
-        if c in glphy_map: glphy_map[c] += 1
-        else: glphy_map[c] = 1
-    return glphy_map
+    def cmd_count(args):
+        logging.debug(repr(args))
+        if args.format == "text": inobj1 = args.inpath1
+        elif args.format in ("ftext_org", "ftext_now"):
+            if args.format == "ftext_org": inobj1, _ = load_ftext(args.inpath1)
+            else: _, inobj1 = load_ftext(args.inpath1)
+            inobj1 = [t.text for t in inobj1]
+        counter = count_char(inobj1)
+        n_chars = sum(len(l) for l in inobj1)
+        n_types = len(counter)
+        logging.info(f"{len(inobj1)} lines, {n_chars} chars in total, {n_types} types of chars")
 
-def count_ftextglphy(
-    ftexts: List[Dict[str, Union[int, str]]]) \
-    -> Tuple[bytes, Dict[str, int]]:
-    """
-    :return all_text, glphy_map from ftexts
-    """
+        sbufio = StringIO()
+        chars = counter.most_common(args.most_common)
+        wr = csv.DictWriter(sbufio, ["char", "count"])
+        wr.writeheader()
+        for (k, v) in chars:
+            t = {"char": k, "count": v}
+            wr.writerow(t)
+            logging.info(t)
+        if args.outpath:
+            writebytes(args.outpath, codecs.BOM_UTF8 + writelines([sbufio.getvalue()]))
 
-    all_text = StringIO()
-    for ftext in ftexts:
-        all_text.write(ftext['text'])
-    glphy_map = count_textglphy(all_text.getvalue())
-    return all_text.getvalue(), glphy_map
+    p = argparse.ArgumentParser(description=__description__)
+    p2 = p.add_subparsers(title="operations")
+    p_match = p2.add_parser("match", help="match texts or ftexts in two files")
+    p_count = p2.add_parser("count", help="count texts or ftexts information")
+    for t in (p_match, p_count):
+        t.add_argument("-o", "--outpath", default="out")
+        t.add_argument("--log_level", default="info", help="set log level", 
+            choices=("none", "critical", "error", "warnning", "info", "debug"))
+        t.add_argument("--format", choices=["ftext_org", "ftext_now", "text"], 
+            default="text", help="the format of input file")
+        
+    p_match.set_defaults(handler=cmd_match)
+    p_match.add_argument("inpath1")
+    p_match.add_argument("inpath2")
+    p_count.set_defaults(handler=cmd_count)
+    p_count.add_argument("inpath1")
+    p_count.add_argument("-n", "--most_common", type=int, 
+        default=None, help="show how many most common chars")
 
-def count_ftextfilesglphy(filepaths: List[str])\
-    -> Tuple[bytes, Dict[str, int]]:
+    args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
+    loglevel = args.log_level if hasattr(args, "log_level") else "info"
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+                    format="%(levelname)s:%(funcName)s: %(message)s")
+    if hasattr(args, "handler"): args.handler(args)
+    else: p.print_help()
 
-    ftexts = []
-    for path in filepaths:
-        _, ftexts2 = load_ftext(path, True)
-        ftexts.extend(ftexts2)
-    return count_ftextglphy(ftexts)
+if __name__ == "__main__":
+    cli()
 
 """
 history:
@@ -231,4 +220,5 @@ v0.1, match_texts, write_format_multi, read_format_multi
 v0.2, count_glphy for building font
 v0.2.1, fix read_format_multi bug
 v0.2.2, add typing hint and no dependency to bintext
+v0.3, reamke with libutil v0.6
 """

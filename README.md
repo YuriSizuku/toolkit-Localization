@@ -113,6 +113,16 @@ python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pys
 python src/libimage.py encode --format tile "project/pysrc_all/build/it_decode.png" -o "project/pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 ```
 
+### libword
+
+```shell
+# match ftext_now
+python src/libword.py match --format ftext_now test/sample/COM001.txt test/sample/COM001.txt -o project/pysrc_all/build/COM001_match.csv
+
+# count chars in file
+python src/libword.py count --format ftext_org test/sample/COM001.txt -o project/pysrc_all/build/COM001_count.csv -n 100
+```
+
 ### ftextpack, ftextcvt
 
 ```shell
@@ -178,7 +188,7 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 
 ## Roadmap
 
-* [x] seperate Localizetion Tool from ReverseTool Repo  
+* [x] seperate Localizetion Tool from ReverseTool Repo, [v0.3.5sep](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.3.5sep)
 * [x] make unit test and cli test script
 * [x] write documentation about the project, such as format and cli example  
 * [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
@@ -186,7 +196,7 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 * [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta), [0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
-* [ ] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
+* [x] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [ ] add collated batch files input to improve io performance
 
 ## History

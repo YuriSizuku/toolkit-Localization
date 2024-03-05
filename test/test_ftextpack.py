@@ -4,14 +4,14 @@ import zlib
 from io import BytesIO
 
 from common import *
-import libutil as util
+import libutil as libutil
 import ftextpack
 
 class TestFpack(unittest.TestCase):
     def test_file_com001(self):
         bufio = BytesIO()
         with open(paths_bin["COM001"], 'rb') as fp: srcdata = fp.read()
-        ftexts1, ftexts2 = util.load_ftext(paths_ftext["COM001"])
+        ftexts1, ftexts2 = libutil.load_ftext(paths_ftext["COM001"])
         ftexts1_map = dict((zlib.crc32(srcdata[t.addr: t.addr + t.size]), t) for t in ftexts1)
         
         # test pack_org
