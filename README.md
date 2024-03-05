@@ -47,8 +47,6 @@ w1 --- w2 --- w3
 
 ## CLI Example
 
-We use ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`.  
-
 Install these libraries if you want to use python script.  
 
 ```shell
@@ -57,14 +55,17 @@ python -m pip install numpy numba pillow # libfont, libimage
 python -m pip install scikit-learn # libimage, for kmeans method
 ```
 
-See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).  
-
 Use these scripts to testing
 
 ```shell
 sh project/pysrc_all/test_pyunit.sh
 sh -c "source project/pysrc_all/test_pycli.sh && test_all"
 ```
+
+**We use ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`.**
+**As for the `--batch` mode, replace the inpath and outpath files to the list (txtfile, or string like `dir1;path1;path2...`), usually the first path is for the base directory location**
+
+See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).  
 
 ### libtext
 
@@ -123,12 +124,17 @@ python src/libword.py match --format ftext_now test/sample/COM001.txt test/sampl
 python src/libword.py count --format ftext_org test/sample/COM001.txt -o project/pysrc_all/build/COM001_count.csv -n 100
 ```
 
-### ftextpack, ftextcvt
+### ftextpack
 
 ```shell
-# pack compact mode in zip file
+# pack compact mode in zip file, and batch example
 python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all/build/COM001.zip>COM001/COM001.fp01" -t test/sample/COM001.tbl --pack_compact
+python src/ftextpack.py --batch "test/sample;COM001" "test/sample;COM001.txt" -o "project/pysrc_all/build;COM001.zip>COM001/COM001.fp02" -t test/sample/COM001.tbl --pack_compact
+```
 
+### ftextcvt
+
+```shell
 # json convert
 python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001.json
 python src/ftextcvt.py project/pysrc_all/build/COM001.json -o project/pysrc_all/build/COM001.json.txt
@@ -196,8 +202,8 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 * [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta), [0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
-* [x] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
-* [ ] add collated batch files input to improve io performance
+* [x] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.6beta)
+* [x] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 
 ## History
 

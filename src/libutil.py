@@ -235,6 +235,20 @@ def valid_tile(info: tile_t, shape=None):
     if info.size <=0: info.size = int((info.h * info.w * info.bpp + 7)// 8)
 
 # serilization functions
+def load_batch(strobj: str, *, encoding="utf-8", no_process=False) -> List[str]:
+    """
+    load the batch paths from a file or str
+    in format dir;path1;...
+    """
+
+    if strobj.find(";") < 0: lines = readlines(readbytes(strobj), encoding, keepends=False)
+    else: lines = strobj.split(";")
+    if no_process is False: # apply the first as path and removes empty
+        dirpath = lines[0]
+        lines = [os.path.join(dirpath, line) for line in lines[1:] \
+                 if len(line) > 0 and lines[0]!="#"]
+    return lines
+
 def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], 
         outpath: str = None, *, encoding="utf-8", width_index = (5, 6, 3)) -> List[str]:
     """
@@ -265,7 +279,7 @@ def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t],
     return lines 
 
 @filter_loadfiles(0)
-def load_ftext(inobj: Union[str, List[str]], *, 
+def load_ftext(inobj: Union[str, List[str], Tuple], *, 
         encoding="utf-8") -> Tuple[List[ftext_t], List[ftext_t]]:
     """
     format text, such as ●num|addr|size● text
@@ -274,6 +288,8 @@ def load_ftext(inobj: Union[str, List[str]], *,
              ftexts2[]: text dict array in '●' line
     """
 
+    if inobj==None: return None
+    if type(inobj) == tuple: return inobj
     ftexts1, ftexts2 = [], []
     lines = readlines(inobj, encoding, "ignore", False) if type(inobj) != list else inobj
     if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff") # remove bom
@@ -305,13 +321,15 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
     return lines
 
 @filter_loadfiles(0)
-def load_tbl(inobj: Union[str, List[str]], *, encoding='utf-8') ->  List[tbl_t]:
+def load_tbl(inobj: Union[str, List[str], List[ftext_t]], *, encoding='utf-8') ->  List[tbl_t]:
     """
     tbl file format "tcode=tchar", 
     :param inobj: can be path, or lines[], in the end, no \r \n
     :return: [(charcode, charstr)]
     """
 
+    if inobj==None: return None
+    if len(inobj) > 0 and type(inobj[0])==tbl_t: return inobj
     tbl: List[tbl_t] = []
     lines = readlines(inobj, encoding, 'ignore', False) if type(inobj) != list else inobj
     for line in lines:

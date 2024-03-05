@@ -283,7 +283,7 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     """
 
     valid_tile(tileinfo)
-    tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
+    tbl = load_tbl(tblobj)
     n = len(tbl)
     w = n_row*tileinfo.w
     h = math.ceil(n/n_row)*tileinfo.h
@@ -326,7 +326,7 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     """
 
     valid_tile(tileinfo)
-    tbl = load_tbl(tblobj) if type(tblobj) != list else tblobj
+    tbl = load_tbl(tblobj)
     n = len(tbl)
     logging.info(f"to {n} {tileinfo} glphys" + \
         (f", with palatte {repr(palette.shape)}" if palette is not None else ""))
@@ -401,7 +401,7 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]], inobj: Union[str, np.nda
     img = inobj
     h, w = img.shape[0], img.shape[1]
     n_row = w//tileinfo.w
-    tbl = load_tbl(tblobj) if tblobj!=None else None
+    tbl = load_tbl(tblobj)
     n = len(tbl) if tbl else w//tileinfo.w * h//tileinfo.h
     n = min(n, w//tileinfo.w * h//tileinfo.h)
     logging.info(f"extract {n} {tileinfo} glphys")
@@ -424,7 +424,7 @@ def extract_tile_font(tblobj: Union[str, List[tbl_t]],
     """
 
     valid_tile(tileinfo)
-    tbl = load_tbl(tblobj) if tblobj!=None else None
+    tbl = load_tbl(tblobj)
     tiledata = np.frombuffer(inobj, dtype=np.uint8)
     n = len(tbl) if tbl else len(inobj)//tileinfo.size
     n = min(n, len(inobj)//tileinfo.size)

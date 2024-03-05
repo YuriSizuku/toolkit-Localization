@@ -65,7 +65,11 @@ v0.3, remake with libutil v0.6, accelerate by numba parallel
 
 ```shell
 # `text.py` -> `librawtext.py` -> `libscenario.py` -> 
-
+v0.1, match_texts, write_format_multi, read_format_multi
+v0.2, count_glphy for building font
+v0.2.1, fix read_format_multi bug
+v0.2.2, add typing hint and no dependency to bintext
+v0.3, reamke with libutil v0.6
 ```
 
 * `ftextpack.py`
@@ -74,6 +78,7 @@ v0.3, remake with libutil v0.6, accelerate by numba parallel
 v0.1, initial version with data.fp01
 v0.1.1, add allow_compat for smaller memory use
 v0.2, remake according to libtext v0.6
+v0.2.1, use batch operations to improve performance
 ```
 
 * `ftextcvt.py`

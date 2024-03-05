@@ -48,6 +48,7 @@ test_ftextpack()
     echo "## test ftextpack"
     python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o project/pysrc_all//build/COM001.fp01 -t test/sample/COM001.tbl --pack_org
     python src/ftextpack.py test/sample/COM001 test/sample/COM001.txt -o "project/pysrc_all//build/COM001.zip>COM001/COM001测试.fp01" -t test/sample/COM001.tbl --pack_compact
+    python src/ftextpack.py --batch "test/sample;COM001" "test/sample;COM001.txt" -o "project/pysrc_all/build;COM001.zip>COM001/COM001.fp02" -t test/sample/COM001.tbl --pack_compact
 }
 
 test_ftextcvt()

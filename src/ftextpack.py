@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __description__ = """
 A flexble format with low memory implementation
-    v0.2, developed by devseed
+    v0.2.1, developed by devseed
 
     use ftextpack.h to load dynamicly    
 """
@@ -18,13 +18,13 @@ from dataclasses import dataclass, field
 from typing import Callable, List
 
 try:
-    from libutil import writebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl
+    from libutil import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl
     from libtext import encode_extend
 except ImportError:
-    exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_ftext, load_tbl")
+    exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl")
     exec("from libtext_v600 import encode_extend")
 
-__version__ = 200
+__version__ = 210
 
 # ftextpack functions
 class ftextpack_textinfo_t(Structure):
@@ -98,7 +98,7 @@ def pack_ftexts(binobjs, ftextobjs,
     
     @filter_loadfiles([1])
     def _load_pair(ftextobj, binobj) -> List[ftextpack_info_t]:
-        ftexts1, ftexts2 = load_ftext(ftextobj) if type(ftextobj) != tuple else ftextobj
+        ftexts1, ftexts2 = load_ftext(ftextobj)
         logging.info(f"load {repr(ftextobj)} with {len(ftexts1)} texts")
         assert(len(ftexts1) == len(ftexts2))
 
@@ -131,7 +131,7 @@ def pack_ftexts(binobjs, ftextobjs,
     bufio = BytesIO()
     crcmap = dict() # {crc: ftext}
     infos: List[ftextpack_info_t] = []
-    tbl = load_tbl(tblobj) if tblobj else None
+    tbl = load_tbl(tblobj)
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     text_replace = text_replace if text_replace else dict()
@@ -169,19 +169,34 @@ def pack_ftexts(binobjs, ftextobjs,
 def cli(cmdstr=None):
     def cmd_pack(args):
         logging.debug(repr(args))
-        outpath = args.outpath if args.outpath!="" else None
+        if args.batch:
+            binpaths = load_batch(args.binpath)
+            ftextpaths = load_batch(args.ftextpath)
+            outpaths = load_batch(args.outpath)
+        else:
+            binpaths = [args.binpath]
+            ftextpaths = [args.ftextpath]
+            outpaths = [args.outpath if args.outpath!="" else None]
+
+        print(args.tbl)
+        tbl = load_tbl(args.tbl)
         text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
-        pack_ftexts(args.binpath, args.ftextpath, outpath, 
-        encoding=args.encoding, tblobj=args.tbl, text_noeval=args.text_noeval, 
-        text_replace=text_replace, bytes_fallback=bytes_fallback, 
-        pack_sort=args.pack_sort, pack_org=args.pack_org, 
-        pack_nodup=args.pack_nodup, pack_compact=args.pack_compact)
+        n = min(len(binpaths), len(ftextpaths), len(outpaths))
+        for i, (binpath, ftextpath, outpath) in enumerate(zip(binpaths, ftextpaths, outpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [binpath={binpath} ftextpath={ftextpath} outpath={outpath}]")
+            pack_ftexts(binpath, ftextpath, outpath, 
+                encoding=args.encoding, tblobj=tbl, text_noeval=args.text_noeval, 
+                text_replace=text_replace, bytes_fallback=bytes_fallback, 
+                pack_sort=args.pack_sort, pack_org=args.pack_org, 
+                pack_nodup=args.pack_nodup, pack_compact=args.pack_compact)
 
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument("binpath", help="bin file or dir")
     parser.add_argument("ftextpath", help="ftext file or dir")
     parser.add_argument("-o", "--outpath", default="data.fp01")
+    parser.add_argument("--batch", action="store_true", 
+        help="use batch mode, the binpath, ftextpath, outpath should be the list file")
     parser.add_argument("-e", "--encoding", default='utf-8', help="use encoding for packing text")
     parser.add_argument("-t", "--tbl", default=None, help="use custome tbl for packing text")
     parser.add_argument("-r", "--text_replace", default=None, type=str, 
@@ -210,4 +225,5 @@ history:
 v0.1, initial version with data.fp01
 v0.1.1, add allow_compat for smaller memory use
 v0.2, remake according to libtext v0.6
+v0.2.1, use batch operations to improve performance
 """

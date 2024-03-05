@@ -372,7 +372,7 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
 
     data = memoryview(binobj)
     data_slice = slice(0, None, 1) if data_slice is None else data_slice
-    tbl =  load_tbl(tblobj, encoding=encoding) if tblobj else None
+    tbl =  load_tbl(tblobj, encoding=encoding)
     addrs, sizes = _detect_text(data[data_slice])
     addrs = list(map(lambda x: x + data_slice.start, addrs))
     ftexts = _make_ftexts(addrs, sizes)
@@ -450,11 +450,11 @@ def insert_ftexts(binobj: Union[str, bytes],
     
     refcache = set()
     refdata = memoryview(referobj) if referobj else None
-    tbl = load_tbl(tblobj) if tblobj else None
+    tbl = load_tbl(tblobj)
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     text_replace = text_replace if text_replace else dict()
-    _, ftexts = ftextsobj if type(ftextsobj)==tuple else load_ftext(ftextsobj)
+    _, ftexts = load_ftext(ftextsobj)
     ftexts.sort(key=lambda x: x.addr)
     logging.info(f"load {len(ftexts)} ftexts")
 
@@ -508,7 +508,7 @@ def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outp
     
     msgs: List[msg_t] = []
     lines = linesobj
-    tbl = load_tbl(tblobj) if tblobj else None
+    tbl = load_tbl(tblobj)
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     refdata = memoryview(referobj) if referobj else None
