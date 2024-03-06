@@ -2,7 +2,7 @@
 __description__ = """
 A image tool (remake) for image encoding or decoding, 
 all the intermediate format is rgba, index in alpha channel
-    v0.3, develope by devseed
+    v0.3.1, develope by devseed
 """
 
 import math
@@ -17,11 +17,11 @@ from numba import njit, prange, void, uint8, int32
 readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
 
 try:
-    from libutil import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile
+    from libutil import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_batch, valid_tile
 except ImportError:
-    exec("from libutil_v600 import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile")
+    exec("from libutil_v600 import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_batch, valid_tile")
 
-__version__ = 300
+__version__ = 310
 
 # methods for generate patterns
 def make_swizzle_pattern(tileorder) -> np.ndarray:
@@ -286,23 +286,37 @@ def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, o
     return img
 
 def cli(cmdstr=None):
-    def cmd_decode(args):
-        logging.debug(repr(args))
+    def filter_paths(args):
+        if args.batch:
+            inpaths = load_batch(args.inpath)
+            outpaths = load_batch(args.outpath)
+        else: inpaths, outpaths = [args.inpath], [args.outpath]
+        n = min(len(inpaths), len(outpaths))
+        return inpaths, outpaths, n
+    
+    def filter_cfgs(args):
         tileinfo = tile_t(args.tilew, args.tileh,args.tilebpp, args.tilesize)
         palette = bytes.fromhex(args.palette) if args.palette else None
         if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
-        if args.format == "tile":
-            decode_tile_image(args.inpath, tileinfo, args.outpath, 
-                palette=palette, n_tile=args.n_tile, n_row=args.n_row)
+        return tileinfo, palette
+
+    def cmd_decode(args):
+        logging.debug(repr(args))
+        inpaths, outpaths, n = filter_paths(args)
+        tileinfo, palette = filter_cfgs(args)
+        for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
+            if args.format == "tile":
+                decode_tile_image(inpath, tileinfo, outpath, palette=palette, n_tile=args.n_tile, n_row=args.n_row)
 
     def cmd_encode(args):
         logging.debug(repr(args))
-        tileinfo = tile_t(args.tilew, args.tileh,args.tilebpp, args.tilesize)
-        palette = bytes.fromhex(args.palette) if args.palette else None
-        if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
-        if args.format == "tile":
-            encode_tile_image(args.inpath, tileinfo, args.outpath, 
-                palette=palette, n_tile=args.n_tile)
+        inpaths, outpaths, n = filter_paths(args)
+        tileinfo, palette = filter_cfgs(args)
+        for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
+            if args.format == "tile":
+                encode_tile_image(inpath, tileinfo, outpath, palette=palette, n_tile=args.n_tile)
 
     p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
@@ -312,6 +326,7 @@ def cli(cmdstr=None):
         t.add_argument("-o", "--outpath", default="out")
         t.add_argument("--log_level", default="info", help="set log level", 
             choices=("none", "critical", "error", "warnning", "info", "debug"))
+        t.add_argument("--batch", action="store_true", help="batch mode on inpath, outpath")
         t.add_argument("--format", default="tile", choices=["tile"], help="output format")
         t.add_argument("--palette", type=str, default=None)
         t.add_argument("--tilew", type=int, default=0)
@@ -342,4 +357,5 @@ v0.1.1, added BGR mode
 v0.2, add swizzle method
 v0.2.1, change cv2 to PIL.image
 v0.3, remake with libutil v0.6, accelerate by numba parallel
+v0.3.1, add batch mode to optimize performance
 """

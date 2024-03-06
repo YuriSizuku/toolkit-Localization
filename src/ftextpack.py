@@ -167,8 +167,7 @@ def pack_ftexts(binobjs, ftextobjs,
     return fpack
 
 def cli(cmdstr=None):
-    def cmd_pack(args):
-        logging.debug(repr(args))
+    def filter_paths(args):
         if args.batch:
             binpaths = load_batch(args.binpath)
             ftextpaths = load_batch(args.ftextpath)
@@ -177,12 +176,19 @@ def cli(cmdstr=None):
             binpaths = [args.binpath]
             ftextpaths = [args.ftextpath]
             outpaths = [args.outpath if args.outpath!="" else None]
-
-        print(args.tbl)
+        n = min(len(binpaths), len(ftextpaths), len(outpaths))
+        return binpaths, ftextpaths, outpaths, n
+    
+    def filter_cfgs(args):
         tbl = load_tbl(args.tbl)
         text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
-        n = min(len(binpaths), len(ftextpaths), len(outpaths))
+        return tbl, text_replace, bytes_fallback
+
+    def cmd_pack(args):
+        logging.debug(repr(args))
+        binpaths, ftextpaths, outpaths, n = filter_paths(args)
+        tbl, text_replace, bytes_fallback = filter_cfgs(args)
         for i, (binpath, ftextpath, outpath) in enumerate(zip(binpaths, ftextpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [binpath={binpath} ftextpath={ftextpath} outpath={outpath}]")
             pack_ftexts(binpath, ftextpath, outpath, 

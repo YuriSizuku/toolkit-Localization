@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __description__ = """
 A binary text tool (remake) for text exporting, importing and checking
-    v0.6, developed by devseed
+    v0.6.1, developed by devseed
 """
 
 import logging
@@ -11,11 +11,11 @@ from functools import lru_cache
 from typing import Callable, Tuple, Union, List, Dict
 
 try:
-    from libutil import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl
+    from libutil import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, save_ftext, load_ftext, load_tbl")
+    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl")
 
-__version__  = 600
+__version__  = 610
 
 # text basic functions
 def iscjk(c: str): 
@@ -569,82 +569,115 @@ def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outp
 def cli(cmdstr=None):
     def cmd_extract(args):
         logging.debug(repr(args))
-        outpath = args.outpath if args.outpath!="" else None
+        if args.batch:
+            binpaths = load_batch(args.binpath)
+            outpaths = load_batch(args.outpath)
+        else: 
+            binpaths = [args.binpath]
+            outpaths = [args.outpath if args.outpath!="" else None]
         start = int(args.skip, 0) if args.skip else 0 
         end =  start + int(args.size, 0) if args.size else None
-        extract_ftexts(args.binpath, outpath, 
-            encoding=args.encoding, tblobj=args.tbl, 
-            min_len=args.min_len, has_cjk=args.has_cjk, 
-            data_slice=slice(start, end, 1))
+        n = min(len(binpaths), len(outpaths))
+        for i, (binpath, outpath) in enumerate(zip(binpaths, outpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [binpath={binpath} outpath={outpath}]")
+            extract_ftexts(binpath, outpath, 
+                encoding=args.encoding, tblobj=args.tbl, 
+                min_len=args.min_len, has_cjk=args.has_cjk, 
+                data_slice=slice(start, end, 1))
 
     def cmd_insert(args):
         logging.debug(repr(args))
-        outpath = args.outpath if args.outpath!="" else None
+        if args.batch:
+            binpaths = load_batch(args.binpath)
+            ftextpaths = load_batch(args.ftextpath)
+            outpaths = load_batch(args.outpath)
+            referpaths = load_batch(args.referpath) if args.referpath else [None]*len(ftextpaths)
+        else: 
+            binpaths = [args.binpath]
+            ftextpaths =[args.ftextpath]
+            outpaths = [args.outpath if args.outpath!="" else None]
+            referpaths = [args.referpath]
         text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_padding = bytes.fromhex(args.bytes_padding)
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
-        insert_ftexts(args.binpath, args.ftextpath, outpath, 
-            encoding=args.encoding, tblobj=args.tbl, referobj=args.referpath, 
-            text_noeval=args.text_noeval, text_replace=text_replace, 
-            bytes_padding=bytes_padding, bytes_fallback=bytes_fallback, 
-            insert_longer=args.insert_longer, insert_shorter=args.insert_shorter, 
-            insert_align=args.insert_align)
+        n = min(len(binpaths), len(ftextpaths), len(outpaths))
+        for i, (binpath, ftextpath, outpath, referpath) in enumerate(zip(binpaths, ftextpaths, outpaths, referpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [binpath={binpath} ftextpath={ftextpath} referpath={referpath} outpath={outpath}]")
+            insert_ftexts(binpath, ftextpath, outpath, 
+                encoding=args.encoding, tblobj=args.tbl, referobj=referpath, 
+                text_noeval=args.text_noeval, text_replace=text_replace, 
+                bytes_padding=bytes_padding, bytes_fallback=bytes_fallback, 
+                insert_longer=args.insert_longer, insert_shorter=args.insert_shorter, 
+                insert_align=args.insert_align)
 
     def cmd_check(args):
         logging.debug(repr(args))
-        outpath = args.outpath if args.outpath!="" else None
+        if args.batch:
+            ftextpaths = load_batch(args.ftextpath)
+            outpaths = load_batch(args.outpath)
+            referpaths = load_batch(args.referpath) if args.referpath else [None]*len(ftextpaths)
+        else: 
+            ftextpaths =[args.ftextpath]
+            outpaths = [args.outpath if args.outpath!="" else None]
+            referpaths = [args.referpath]
+        
         text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
         bytes_fallback = bytes.fromhex(args.bytes_fallback) if args.bytes_fallback else None
-        check_ftexts(args.ftextpath, outpath,  
-            encoding=args.encoding, tblobj=args.tbl, referobj=args.referpath, 
-            text_replace=text_replace, text_noeval=args.text_noeval,
-            bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
+        n = min(len(ftextpaths), len(outpaths))
+        for i, (ftextpath, outpath, referpath) in enumerate(zip(ftextpaths, outpaths, referpaths)):
+            if args.batch: logging.info(f"batch {i+1}/{n} [ftextpath={ftextpath} referpath={referpath} outpath={outpath}]")
+            check_ftexts(ftextpath, outpath,  
+                encoding=args.encoding, tblobj=args.tbl, referobj=referpath, 
+                text_replace=text_replace, text_noeval=args.text_noeval,
+                bytes_fallback=bytes_fallback, insert_longer=args.insert_longer)
 
-    parser = argparse.ArgumentParser(description=__description__)
-    subparsers = parser.add_subparsers(title="operations")
-    parser_e = subparsers.add_parser("extract", help="extract text in binfile to ftext")
-    parser_i = subparsers.add_parser("insert", help="insert ftext to binfile")
-    parser_c = subparsers.add_parser("check", help="check the ftext with binfile")
+    p = argparse.ArgumentParser(description=__description__)
+    p2 = p.add_subparsers(title="operations")
+    p_extract = p2.add_parser("extract", help="extract text in binfile to ftext")
+    p_insert = p2.add_parser("insert", help="insert ftext to binfile")
+    p_check = p2.add_parser("check", help="check the ftext with binfile")
 
-    for p in [parser_e, parser_i, parser_c]:
-        p.add_argument("-o", "--outpath", default="out")
-        p.add_argument("-e", "--encoding", default="utf-8", help="binfile encoding")
-        p.add_argument("-t", "--tbl", default=None, help="binfile tbl")
-        p.add_argument("--log_level", default="info", help="set log level", 
+    for t in [p_extract, p_insert, p_check]:
+        t.add_argument("-o", "--outpath", default="out")
+        t.add_argument("-e", "--encoding", default="utf-8", help="binfile encoding")
+        t.add_argument("-t", "--tbl", default=None, help="binfile tbl")
+        t.add_argument("--log_level", default="info", help="set log level", 
             choices=("none", "critical", "error", "warnning", "info", "debug"))
-    parser_e.set_defaults(handler=cmd_extract)
-    parser_e.add_argument("binpath")
-    parser_e.add_argument('--has_cjk', action='store_true', help="filter non cjk text")
-    parser_e.add_argument('--min_len', type=int, default=2, help="filter text below len")
-    parser_e.add_argument('--skip', default=None, help="skip bytes to extract")
-    parser_e.add_argument('--size', default=None, help="extract bytes size")
-    parser_i.set_defaults(handler=cmd_insert)
-    parser_i.add_argument("binpath")
-    parser_i.add_argument("ftextpath")
-    parser_i.add_argument("--refer", dest="referpath", help="use this referfile for calcuate addr")
-    parser_i.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
-    parser_i.add_argument("--text_replace", type=str, default=None, 
+        t.add_argument("--batch", action="store_true", help="batch mode on binpath, ftextpath, outpath, referpath")
+       
+    p_extract.set_defaults(handler=cmd_extract)
+    p_extract.add_argument("binpath")
+    p_extract.add_argument('--has_cjk', action='store_true', help="filter non cjk text")
+    p_extract.add_argument('--min_len', type=int, default=2, help="filter text below len")
+    p_extract.add_argument('--skip', default=None, help="skip bytes to extract")
+    p_extract.add_argument('--size', default=None, help="extract bytes size")
+    p_insert.set_defaults(handler=cmd_insert)
+    p_insert.add_argument("binpath")
+    p_insert.add_argument("ftextpath")
+    p_insert.add_argument("--refer", dest="referpath", help="use this referfile for calcuate addr")
+    p_insert.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
+    p_insert.add_argument("--text_replace", type=str, default=None, 
         metavar=('src', 'dst'), nargs=2, action='append', help="replace bytes after encoding ")
-    parser_i.add_argument("--bytes_padding", type=str, default="00",  help="padding bytes (fromhex format)")
-    parser_i.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
-    parser_i.add_argument("--insert_shorter", action="store_true", help="insert data can longer than origin")
-    parser_i.add_argument("--insert_longer", action="store_true",  help="insert data can shorter than origin")
-    parser_i.add_argument("--insert_align", default=1, help="insert data by align value")
-    parser_c.set_defaults(handler=cmd_check)
-    parser_c.add_argument("ftextpath")
-    parser_c.add_argument("--refer", dest="referpath", help="binfile path")
-    parser_c.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
-    parser_c.add_argument("-r", "--text_replace", type=str, default=None, 
+    p_insert.add_argument("--bytes_padding", type=str, default="00",  help="padding bytes (fromhex format)")
+    p_insert.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
+    p_insert.add_argument("--insert_shorter", action="store_true", help="insert data can longer than origin")
+    p_insert.add_argument("--insert_longer", action="store_true",  help="insert data can shorter than origin")
+    p_insert.add_argument("--insert_align", default=1, help="insert data by align value")
+    p_check.set_defaults(handler=cmd_check)
+    p_check.add_argument("ftextpath")
+    p_check.add_argument("--refer", dest="referpath", help="binfile path")
+    p_check.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
+    p_check.add_argument("-r", "--text_replace", type=str, default=None, 
         metavar=('src', 'dst'), nargs=2, action='append', help="replace bytes after encoding ")
-    parser_c.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
-    parser_c.add_argument("--insert_longer", action="store_true", help="insert data can shorter than origin")
+    p_check.add_argument("--bytes_fallback", type=str, default=None, help="bytes after tbl failed")
+    p_check.add_argument("--insert_longer", action="store_true", help="insert data can shorter than origin")
 
-    args = parser.parse_args(cmdstr.split(' ') if cmdstr else None)
+    args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
     logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
                         format="%(levelname)s:%(funcName)s: %(message)s")
     if hasattr(args, "handler"): args.handler(args)
-    else: parser.print_help()
+    else: p.print_help()
 
 if __name__ == "__main__":
     cli()
@@ -654,4 +687,5 @@ history:
 v0.1, initial version with utf-8 support
 ... 
 v0.6, remake to increase speed and simplify functions
+v0.6.1, add batch mode on extract, insert to optimize performance
 """

@@ -3,14 +3,17 @@ test_libtext()
     echo "## test libtext insert"
     python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all//build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
     python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all//build/COM001_rebuild.bin.gz --log_level info
+    python src/libtext.py insert --batch "test/sample;COM001" "test/sample;COM001.txt" --refer "test/sample;COM001"  -t test/sample/COM001.tbl -o "project/pysrc_all/build;COM001_rebuild.bin" --bytes_padding "2020" --bytes_fallback "815A"
 
     echo "## test libtext extract"
-    python src/libtext.py extract project/pysrc_all//build/COM001_rebuild.bin -o project/pysrc_all//build/COM001_rebuild.txt --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
-    python src/libtext.py extract project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+    python src/libtext.py extract project/pysrc_all//build/COM001_rebuild.bin -o project/pysrc_all/build/COM001_rebuild.txt --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+    python src/libtext.py extract project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all/build/COM001.zip>COM001/COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4 --skip 0x16 --size 1024
+    python src/libtext.py extract --batch "project/pysrc_all//build;COM001_rebuild.bin" -o "project/pysrc_all//build;COM001_rebuild.txt" --log_level info -e sjis --has_cjk --min_len 4
 
     echo "## test libtext check"
     python src/libtext.py check project/pysrc_all//build/COM001_rebuild.txt --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001_rebuild_check.txt" --log_level info -e sjis
     python src/libtext.py check "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
+    python src/libtext.py check --batch "project/pysrc_all/build;COM001.zip>COM001/COM001_rebuild.txt" --refer "project/pysrc_all;build/COM001_rebuild.bin" -o "project/pysrc_all;build/COM001_rebuild_check.txt" --log_level info -e sjis
 }
 
 test_libfont()
@@ -32,8 +35,10 @@ test_libfont()
 test_libimage()
 {
     echo "## test_libimage"
-    python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff" 
+    python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
     python src/libimage.py encode --format tile "project/pysrc_all/build/it_decode.png" -o "project/pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+    python src/libimage.py decode --batch --format tile "test/sample;it.bin" -o "project/pysrc_all;build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
+    python src/libimage.py encode --batch --format tile "project/pysrc_all/build;it_decode.png" -o "project;pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 }
 
 test_libword()

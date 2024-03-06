@@ -26,6 +26,7 @@ v0.5.6, add typing hint and prepare read lines for pyscript in web
 v0.5.7, add repalced map in check method, fix -e in check 
 v0.5.8, add f_extension for {{}}, f_adjust in patch_text, and align for patch
 v0.6, remake to increase speed and simplify functions
+v0.6.1, add batch mode on extract, insert to optimize performance
 ```
 
 * `libfont.py`
@@ -59,6 +60,7 @@ v0.1.1, added BGR mode
 v0.2, add swizzle method
 v0.2.1, change cv2 to PIL.image
 v0.3, remake with libutil v0.6, accelerate by numba parallel
+v0.3.1, add batch mode to optimize performance
 ```
 
 * `libword.py`
