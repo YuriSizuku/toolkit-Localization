@@ -329,7 +329,7 @@ def load_tbl(inobj: Union[str, List[str], List[ftext_t]], *, encoding='utf-8') -
     """
 
     if inobj==None: return None
-    if len(inobj) > 0 and type(inobj[0])==tbl_t: return inobj
+    if len(inobj) > 0 and hasattr(inobj[0], "tchar"): return inobj
     tbl: List[tbl_t] = []
     lines = readlines(inobj, encoding, 'ignore', False) if type(inobj) != list else inobj
     for line in lines:

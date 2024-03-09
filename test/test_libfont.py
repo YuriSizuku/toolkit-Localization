@@ -130,7 +130,7 @@ class TestExtractFont(unittest.TestCase):
     def test_com001_extractimagefont(self):
         if sys.platform != "win32": return
         img = libfont.make_image_font(paths_tbl["COM001"], r"C:\Windows\Fonts\simhei.ttf", 
-                tileinfo=tile_t(24, 24), render_size=24, n_render=1)
+                tileinfo=tile_t(24, 24), render_size=24, render_overlap=1)
         outdir = None if True else "project/pysrc_all/build/com001"
         libfont.extract_image_font(paths_tbl["COM001"], img, tile_t(24, 24), outpath=outdir)
 

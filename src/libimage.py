@@ -56,7 +56,7 @@ def make_swizzle_pattern(tileorder) -> np.ndarray:
     return res
 
 @njit([(int32[:, :])(int32, int32, int32, int32)], parallel=True)
-def make_tile_pattern(tilew, tileh, n_tile=4, n_row=2) -> np.ndarray:
+def make_tile_pattern(tilew, tileh, ntiletotal=4, ntilerow=2) -> np.ndarray:
     """
 `   make tilehxtilew swizzle, for example 3 tile (2, 4),
         0	1	2	3  8  9  10 11 
@@ -66,9 +66,9 @@ def make_tile_pattern(tilew, tileh, n_tile=4, n_row=2) -> np.ndarray:
         the square side is 2^n`
     """
 
-    w, h = n_row*tilew, (n_tile + n_row - 1)// n_row * tileh
+    w, h = ntilerow*tilew, (ntiletotal + ntilerow - 1)// ntilerow * tileh
     res = -np.ones((h, w), dtype=np.int32)
-    for tileidx in prange(n_tile):
+    for tileidx in prange(ntiletotal):
         for tiley in prange(tileh):
             for tilex in prange(tilew):
                 stride_tile = w // tilew                  
@@ -231,12 +231,12 @@ def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palette, img):
 #  wrappers for image convert
 @filter_loadimages((0, "RGBA"))
 def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, *, 
-        palette: np.ndarray=None, n_tile=0) -> np.ndarray:
+        palette: np.ndarray=None, ntiletotal=0) -> np.ndarray:
     """
     encode tile image wrapper
     :param tile: (w, h, bpp, size)
     :param palette: ndarray (n,4)
-    :param n_tile: the count of whole tiles
+    :param ntiletotal: the count of whole tiles
     :return: img in rbga format
     """
 
@@ -245,7 +245,7 @@ def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=
     imgw, imgh = img.shape[1], img.shape[0]
     valid_tile(tileinfo, img.shape)
     n =  imgw // tileinfo.w * imgh // tileinfo.h
-    if n_tile> 0: n = min(n, n_tile)
+    if ntiletotal> 0: n = min(n, ntiletotal)
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
     tiledata = np.zeros(n*tileinfo.size, dtype=np.uint8)
     
@@ -258,26 +258,26 @@ def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=
 
 @filter_loadfiles(0)
 def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, outpath=None, *, 
-        palette: np.ndarray=None, n_tile=0, n_row=64) -> np.ndarray:
+        palette: np.ndarray=None, ntiletotal=0, ntilerow=64) -> np.ndarray:
     """
     decode tile image wrapper
     :param tile: (w, h, bpp, size)
     :param palette: ndarray (n,4)
-    :param n_tile: the count of whole tiles
-    :param n_row: the count of tiles in a row
+    :param ntiletotal: the count of whole tiles
+    :param ntilerow: the count of tiles in a row
     :return: img in rbga format
     """
 
     # init tile
     valid_tile(tileinfo)
     n = len(binobj) // tileinfo.size
-    if n_tile> 0: n = min(n, n_tile)
+    if ntiletotal> 0: n = min(n, ntiletotal)
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
     if type(binobj) == np.ndarray: tiledata = binobj[:n*tileinfo.size]
     else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tileinfo.size)
     
     # init image and decode
-    imgw, imgh = tileinfo.w * n_row, tileinfo.h * math.ceil(n/n_row)
+    imgw, imgh = tileinfo.w * ntilerow, tileinfo.h * math.ceil(n/ntilerow)
     img = np.zeros([imgh, imgw, 4], dtype='uint8')
     logging.info(f"{n} {repr(tileinfo)} -> image {img.shape}")
     decode_tiles(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, img)
@@ -307,7 +307,8 @@ def cli(cmdstr=None):
         for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
             if args.format == "tile":
-                decode_tile_image(inpath, tileinfo, outpath, palette=palette, n_tile=args.n_tile, n_row=args.n_row)
+                decode_tile_image(inpath, tileinfo, outpath, 
+                    palette=palette, ntiletotal=args.ntiletotal, ntilerow=args.ntilerow)
 
     def cmd_encode(args):
         logging.debug(repr(args))
@@ -316,7 +317,8 @@ def cli(cmdstr=None):
         for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
             if args.format == "tile":
-                encode_tile_image(inpath, tileinfo, outpath, palette=palette, n_tile=args.n_tile)
+                encode_tile_image(inpath, tileinfo, outpath, 
+                    palette=palette, ntiletotal=args.ntiletotal)
 
     p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
@@ -332,13 +334,13 @@ def cli(cmdstr=None):
         t.add_argument("--tilew", type=int, default=0)
         t.add_argument("--tileh", type=int, default=0)
         t.add_argument("--tilebpp", type=int, default=0)
-        t.add_argument("--tilesize",type=int , default=0)
-        t.add_argument("--n_tile",type=int , default=0)
+        t.add_argument("--tilesize", type=int , default=0)
+        t.add_argument("--ntiletotal", type=int , default=0)
     p_encode.set_defaults(handler=cmd_encode)
     p_encode.add_argument("inpath")
     p_decode.set_defaults(handler=cmd_decode)
     p_decode.add_argument("inpath")
-    p_decode.add_argument("--n_row",type=int , default=64)
+    p_decode.add_argument("--ntilerow",type=int , default=64)
 
     args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"

@@ -301,6 +301,7 @@ def check_ftextlines(lines: List[str]) -> List[msg_t]:
     msgs = []
     if len(lines) > 0: lines[0] = lines[0].lstrip("\ufeff") # remove bom
     for i, line in enumerate(lines):
+        if len(line) <=0: continue
         indicator = line[0]
         if indicator == "#": continue
         if indicator not in {"○", "●"}: continue
@@ -362,7 +363,7 @@ def extract_ftexts(binobj: Union[str, bytes], outpath=None,
     def _make_ftexts(addrs, sizes):
         ftexts: List[ftext_t] = []
         for i, (addr, size) in enumerate(zip(addrs, sizes)):
-            if tbl is None: text = str(data[addr: addr+size], encoding)
+            if tbl is None: text = str(data[addr: addr+size], encoding, "ignore")
             else: text = decode_tbl(data[addr: addr+size], tbl)
             if has_cjk and not hascjk(text): continue
             text = text.replace('\n', r'[\n]').replace('\r', r'[\r]')
@@ -483,9 +484,9 @@ def insert_ftexts(binobj: Union[str, bytes],
         shift += len(encbytes) - t.size
     
         if jump_table:
-            for t in jump_table:
-                if t.addr >= addr: t.addr_new  = t.addr + shift
-                if t.toaddr >= addr:  t.toaddr_new = t.toaddr + shift
+            for t2 in jump_table:
+                if t2.addr >= addr: t2.addr_new  = t2.addr + shift
+                if t2.toaddr >= addr:  t2.toaddr_new = t2.toaddr + shift
         _sizestr = f"0x{t.size:x}" + (f"->0x{len(encbytes):x}" if len(encbytes)!=t.size else "")
         logging.info(f"inserted [addr=0x{addr:x} size={_sizestr} text='{text}]'")
 
@@ -496,7 +497,7 @@ def insert_ftexts(binobj: Union[str, bytes],
     logging.info(f"finished with datasize 0x{len(srcdata):x}->0x{len(dstdata):x}")
     return dstdata
 
-@filter_loadfiles([(0, 'utf-8', 'ignore'), "referobj"])
+@filter_loadfiles([(0, 'utf-8', 'ignore', False), "referobj"])
 def check_ftexts(linesobj: Union[str, Tuple[List[ftext_t], List[ftext_t]]], outpath=None, 
         encoding='utf-8', tblobj: Union[str, List[tbl_t]]=None, *, 
         text_noeval=False, text_replace: Dict[bytes, bytes]=None,

@@ -269,14 +269,14 @@ def save_glphy(outpath, img):
 
 @filter_loadfiles(1)
 def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
-        tileinfo: tile_t, outpath=None, *, n_row=64, n_render=3, 
-        render_size=0, render_shift=(0, 0)) -> np.ndarray:
+        tileinfo: tile_t, outpath=None, *, ntilerow=64, 
+        render_overlap=3, render_size=0, render_shift=(0, 0)) -> np.ndarray:
     """
     :param tblobj: tbl path or tbl object
     :param ttfobj: ttf font path or bytes
     :param tile: (w, h) 
-    :param n_row: how many glphy in a row
-    :param n_render: render multi times to increase brightness
+    :param ntilerow: how many glphy in a row
+    :param render_overlap: render multi times to increase brightness
     :param render_size: font size in each render glphy
     :param render_shift: (x, y) in each render glphy
     :return: img
@@ -285,8 +285,8 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     valid_tile(tileinfo)
     tbl = load_tbl(tblobj)
     n = len(tbl)
-    w = n_row*tileinfo.w
-    h = math.ceil(n/n_row)*tileinfo.h
+    w = ntilerow*tileinfo.w
+    h = math.ceil(n/ntilerow)*tileinfo.h
     img = np.zeros((h, w, 4), dtype=np.uint8)
     logging.info(f"render font to image ({w}X{h}), {n} glphys {tileinfo.w}x{tileinfo.h}")
     
@@ -297,12 +297,12 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     draw = ImageDraw.Draw(pil)
 
     for i, t in enumerate(tbl):
-        x = render_shift[0] + (i%n_row)*tileinfo.w
-        y = render_shift[1] + (i//n_row)*tileinfo.h 
+        x = render_shift[0] + (i%ntilerow)*tileinfo.w
+        y = render_shift[1] + (i//ntilerow)*tileinfo.h 
         draw.text((x,y), t.tchar, fill=(255,255,255,255), font=font, align="center")
-    if n_render > 1: # alpha blending for overlap
+    if render_overlap > 1: # alpha blending for overlap
         alpha = img[..., 3].astype(np.float32)/255.0
-        for i in range(n_render-1): 
+        for i in range(render_overlap-1): 
             alpha = alpha + (1-alpha)*alpha
         img[..., 3] = (alpha*255).astype(np.uint8)
 
@@ -311,14 +311,13 @@ def make_image_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
 
 @filter_loadfiles(1)
 def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
-        tileinfo: tile_t, outpath=None, *, n_render=3, render_size=0, render_shift=(0, 0), 
+        tileinfo: tile_t, outpath=None, *, render_overlap=3, render_size=0, render_shift=(0, 0), 
         palette=None, f_encode: Callable=encode_glphy) -> np.ndarray:
     """
     :param tblobj: tbl path or tbl object
     :param ttfobj: ttf font path or bytes
     :param tileinfo: (h, w, bpp, size) 
-    :param n_row: how many glphy in a row
-    :param n_render: render multi times to increase brightness
+    :param render_overlap: render multi times to increase brightness
     :param render_size: font size in each render glphy
     :param render_shift: (x, y) in each render glphy
     :param f_encode: f(tiledata, tilesize, tilew, tileh, tilebpp, palette, img)
@@ -341,9 +340,9 @@ def make_tile_font(tblobj: Union[str, List[tbl_t]], ttfobj: Union[str, bytes],
     for i, t in enumerate(tbl):
         draw.text((render_shift[0],render_shift[1]), 
             t.tchar, fill=(255,255,255,255), font=font, align="center")
-        if n_render > 1: # alpha blending for overlap
+        if render_overlap > 1: # alpha blending for overlap
             alpha = tileimg[..., 3].astype(np.float32)/255.0
-            for _ in range(n_render-1): 
+            for _ in range(render_overlap-1): 
                 alpha = alpha + (1-alpha)*alpha
             tileimg[..., 3] = (alpha*255).astype(np.uint8)
         f_encode(tiledata[i*tileinfo.size: (i+1)*tileinfo.size], 
@@ -400,7 +399,7 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]], inobj: Union[str, np.nda
     valid_tile(tileinfo)
     img = inobj
     h, w = img.shape[0], img.shape[1]
-    n_row = w//tileinfo.w
+    ntilerow = w//tileinfo.w
     tbl = load_tbl(tblobj)
     n = len(tbl) if tbl else w//tileinfo.w * h//tileinfo.h
     n = min(n, w//tileinfo.w * h//tileinfo.h)
@@ -408,7 +407,7 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]], inobj: Union[str, np.nda
     
     names = n*[None]
     for i in range(n):
-        x, y = i%n_row*tileinfo.h, i//n_row*tileinfo.w
+        x, y = i%ntilerow*tileinfo.h, i//ntilerow*tileinfo.w
         tileimg = img[y: y+tileinfo.h, x: x+tileinfo.w, ...]
         names.append(extract_glphy(tileimg, (outpath if split_glphy else None), i, tbl))
     if outpath and split_glphy is False: save_glphy(outpath, img)
@@ -417,7 +416,7 @@ def extract_image_font(tblobj: Union[str, List[tbl_t]], inobj: Union[str, np.nda
 @filter_loadfiles(1)
 def extract_tile_font(tblobj: Union[str, List[tbl_t]], 
         inobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, palette=None, 
-        split_glphy=True, n_row=64, f_decode=decode_glphy) -> Union[List[str], np.ndarray]:
+        split_glphy=True, ntilerow=64, f_decode=decode_glphy) -> Union[List[str], np.ndarray]:
     """
     extract the glphys from tiles to outpath or outdir
     :param inobj: tiledata
@@ -433,10 +432,10 @@ def extract_tile_font(tblobj: Union[str, List[tbl_t]],
     
     img = None
     names = n*[None]
-    h, w = (n + n_row - 1)//n_row * tileinfo.h , n_row * tileinfo.w
+    h, w = (n + ntilerow - 1)//ntilerow * tileinfo.h , ntilerow * tileinfo.w
     img = np.zeros((h, w, 4), dtype=np.uint8)
     for i in range(n):
-        x, y = i%n_row * tileinfo.w, i//n_row * tileinfo.h
+        x, y = i%ntilerow * tileinfo.w, i//ntilerow * tileinfo.h
         tileimg = img[y: y+tileinfo.h, x: x+tileinfo.w, ...]
         f_decode(tiledata[i*tileinfo.size: (i+1)*tileinfo.size], 
             tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, tileimg)
@@ -490,13 +489,13 @@ def cli(cmdstr=None):
         tileinfo = tile_t(args.tilew, args.tileh, args.tilebpp, args.tilesize)
         if args.format == "image":
             make_image_font(args.tbl, args.ttfpath, tileinfo, outpath=args.outpath, 
-                n_row=args.n_row, n_render=args.n_render, 
+                ntilerow=args.ntilerow, render_overlap=args.render_overlap, 
                 render_size=args.render_size, render_shift=args.render_shift)
         elif args.format == "tile":
             palette = bytes.fromhex(args.palette) if args.palette else None
             if palette: palette = np.frombuffer(palette, dtype=np.uint8).reshape((-1, 4))
             make_tile_font(args.tbl, args.ttfpath, tileinfo, args.outpath, 
-                n_render=args.n_render, render_size=args.render_size, 
+                render_overlap=args.render_overlap, render_size=args.render_size, 
                 render_shift=args.render_shift, palette=palette)
 
     def cmd_font_extract(args):
@@ -560,8 +559,8 @@ def cli(cmdstr=None):
         t.add_argument("--tilesize",type=int , default=0)
     p_font_make.set_defaults(handler=cmd_font_make)
     p_font_make.add_argument("ttfpath")
-    p_font_make.add_argument("--n_row", default=64, help="glphys count in a row")
-    p_font_make.add_argument("--n_render", default=3, help="render overlap count")
+    p_font_make.add_argument("--ntilerow", default=64, help="glphys count in a row")
+    p_font_make.add_argument("--render_overlap", default=3, help="render overlap count")
     p_font_make.add_argument("--render_size", default=0, help="glphy size")
     p_font_make.add_argument("--render_shift", type=int, nargs=2, 
         metavar=("x", "y"), default=(0, 0), help="render shift in a glphy")

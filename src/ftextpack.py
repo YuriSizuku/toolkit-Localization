@@ -22,7 +22,7 @@ try:
     from libtext import encode_extend
 except ImportError:
     exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl")
-    exec("from libtext_v600 import encode_extend")
+    exec("from libtext_v610 import encode_extend")
 
 __version__ = 210
 
