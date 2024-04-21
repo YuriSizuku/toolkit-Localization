@@ -12,8 +12,8 @@ test_libtext()
 
     echo "## test libtext check"
     python src/libtext.py check project/pysrc_all//build/COM001_rebuild.txt --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001_rebuild_check.txt" --log_level info -e sjis
-    python src/libtext.py check "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis
-    python src/libtext.py check --batch "project/pysrc_all/build;COM001.zip>COM001/COM001_rebuild.txt" --refer "project/pysrc_all;build/COM001_rebuild.bin" -o "project/pysrc_all;build/COM001_rebuild_check.txt" --log_level info -e sjis
+    python src/libtext.py check "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild.txt" --refer project/pysrc_all//build/COM001_rebuild.bin -o "project/pysrc_all//build/COM001.zip>COM001/COM001_rebuild_check.txt" --log_level info -e sjis --refer_encoding sjis
+    python src/libtext.py check --batch "project/pysrc_all/build;COM001.zip>COM001/COM001_rebuild.txt" --refer "project/pysrc_all;build/COM001_rebuild.bin" -o "project/pysrc_all;build/COM001_rebuild_check.txt" --log_level info -e sjis --refer_encoding sjis
 }
 
 test_libfont()
