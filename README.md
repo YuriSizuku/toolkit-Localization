@@ -2,7 +2,7 @@
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/YuriSizuku/LocalizationTool?label=LocalizationTool&color=green) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pyexe.yml?label=pyexe)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pysrc.yml?label=pysrc)  
 
-🍀 General localization tools for galgame, seperated from my [ReverseTool](https://github.com/YuriSizuku/ReverseTool)  
+🍀 General localization tools for galgame, seperated from my [WinReverse](https://github.com/YuriSizuku/toolkit-WinReverse)  
 See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for specific galgames.  
 
 ## Components

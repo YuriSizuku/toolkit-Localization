@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 __description__ = """
 A binary text tool (remake) for text exporting, importing and checking
-    v0.6.1, developed by devseed
+    v0.6.3, developed by devseed
 """
 
+import binascii
 import logging
 import argparse
 from io import StringIO, BytesIO
@@ -15,7 +16,7 @@ try:
 except ImportError:
     exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl")
 
-__version__  = 620
+__version__  = 630
 
 # text basic functions
 def iscjk(c: str): 
@@ -81,16 +82,18 @@ def encode_tbl(text: str, tbl: List[tbl_t], bytes_fallback: bytes=None) -> bytes
     tblmap = encode_tbl.tblmap
     for i, c in enumerate(text):
         if c in tblmap: bufio.write(tblmap[c])
-        elif bytes_fallback: bufio.write(bytes_fallback)
+        elif bytes_fallback is not None: 
+            bufio.write(bytes_fallback)
         else:
             bufio.close()
             logging.error(f"encode failed at {i} with {c} [text='{text}]'")
             return None
+
     data = bufio.getvalue()
     bufio.close()
     return data
 
-def decode_tbl(data: bytes, tbl: List[tbl_t]) -> str:
+def decode_tbl(data: bytes, tbl: List[tbl_t], text_fallback=None) -> str:
     """
     decoding the data by tbl
     :return: the decoded text in python string
@@ -112,11 +115,16 @@ def decode_tbl(data: bytes, tbl: List[tbl_t]) -> str:
             sbufio.write(tblrmap[data[i:i+j]])
             flag = True
             break
-        if not flag:
-            sbufio.close()
-            logging.error(f"decode failed at {i} [data={data.hex(' ')}]")
-            return None
+        if not flag: # not find in tbl
+            if text_fallback is not None: 
+                sbufio.write(text_fallback)
+                j = 1
+            else:
+                sbufio.close()
+                logging.error(f"decode failed at {i} [data={data.hex(' ')}]")
+                return None
         i += j
+
     text = sbufio.getvalue()
     sbufio.close()
     return text
@@ -132,9 +140,28 @@ def encode_general(text: str, enc: Union[str, List[tbl_t]]='utf-8', enc_error: U
         try: 
             return text.encode(enc, enc_error)
         except UnicodeEncodeError as e:
-            logging.error(f"encode failed {e} [text='{text}]'")
+            logging.error(f"encode failed {e} [text='{text}']")
             return None
-    else: return encode_tbl(text, enc, enc_error)
+    else:
+        if enc_error == "ignore" : enc_error = b""
+        return encode_tbl(text, enc, enc_error)
+
+def decode_general(data: bytes, enc: Union[str, List[tbl_t]]='utf-8', enc_error: Union[str, bytes]='ignore'):
+    """
+    automaticly judge to encode by tbl or encoding
+    :param enc: tbl or encoding
+    :param enc_error: errors or bytes_fallback
+    """
+
+    if type(enc)==str: 
+        try: 
+            return data.decode(enc, enc_error)
+        except UnicodeEncodeError as e:
+            logging.error(f"decode failed {e} [data={binascii.hexlify(data, sep=' ')}]")
+            return None
+    else: 
+        if enc_error == "ignore" : enc_error = ""
+        return decode_tbl(data, enc, enc_error)
 
 def split_extend(text, text_noeval=False) -> List[Union[slice, bytes]]:    
     start = 0
@@ -708,4 +735,5 @@ v0.1, initial version with utf-8 support
 v0.6, remake to increase speed and simplify functions
 v0.6.1, add batch mode on extract, insert to optimize performance
 v0.6.2, add referencoding, refertbl
+v0.6.3, add decode_tbl text_fallback parameter, decode_general
 """
