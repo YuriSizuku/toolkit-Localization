@@ -686,7 +686,7 @@ def cli(cmdstr=None):
         t.add_argument("-e", "--encoding", default="utf-8", help="binfile encoding")
         t.add_argument("-t", "--tbl", default=None, help="binfile tbl")
         t.add_argument("--log_level", default="info", help="set log level", 
-            choices=("none", "critical", "error", "warnning", "info", "debug"))
+            choices=("none", "critical", "error", "warning", "info", "debug"))
         t.add_argument("--batch", action="store_true", help="batch mode on binpath, ftextpath, outpath, referpath")
        
     p_extract.set_defaults(handler=cmd_extract)

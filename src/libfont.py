@@ -16,7 +16,7 @@ from typing import Callable, Union, Tuple, List, Dict, Set
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
-__version__ = 310
+__version__ = 311
 
 try:
     from libutil import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile, load_tbl, save_tbl
