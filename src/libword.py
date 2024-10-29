@@ -1,25 +1,27 @@
  # -*- coding: utf-8 -*-
 __description__ = """
 A word tool for text operation, such as match, count
-    v0.3, developed by devseed
+    v0.3.1, developed by devseed
 """
 
+import os
 import csv
 import codecs
 import logging
 import argparse
+from glob import glob
 from io import StringIO
 from collections import Counter
-from typing import Callable, Tuple, List
+from typing import Callable, Tuple, List, Union
 
 import numpy as np
 
 try:
-    from libutil import writelines, writebytes, filter_loadfiles, load_ftext
+    from libutil import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext
 except ImportError:
-    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, load_ftext")
+    exec("from libutil_v600 import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext")
 
-__version__ = 300
+__version__ = 310
 
 # algorithms for string
 def calc_lcs(s1: str, s2: str, cache_max=256) -> int:
@@ -120,20 +122,51 @@ def match_line(lines1obj: List[str], lines2obj: List[str], *,
     return line1_match, line2_match
 
 @filter_loadfiles((0, "utf-8", "ignore", True))
-def count_char(linesobj: List[str]) -> Counter:
+def count_line(linesobj: Union[List[str], str]) -> Counter:
     """
     count the char in lines
     :param linesobj: lines or file name
     :return: char counter
     """
     
-    words_counter =  Counter()
+    counter =  Counter()
     lines = linesobj
     for line in lines:
         for c in line:
-            words_counter[c] += 1
+            counter[c] += 1
 
-    return words_counter
+    return counter
+
+def save_counter(counter: Counter, outpath=None, n=None) -> List[str]:
+    """
+    save counter to csv file
+    """
+    
+    sbufio = StringIO()
+    chars = counter.most_common(n)
+    wr = csv.DictWriter(sbufio, ["char", "count"])
+    wr.writeheader()
+    for (k, v) in chars:
+        t = {"char": k, "count": v}
+        wr.writerow(t)
+    lines = sbufio.getvalue().splitlines(keepends=True)
+    if outpath:
+        writebytes(outpath, writelines(lines))
+    
+    return lines
+
+@filter_loadfiles((0, 'utf8'))
+def load_counter(inobj: Union[str, List[str]]) -> Counter:
+    """
+    load counter from csv file
+    """
+    
+    lines = inobj
+    counter = Counter()
+    for row in csv.DictReader(lines):
+        counter.update({row["char"]: int(row["count"])})
+
+    return counter
 
 def cli(cmdstr=None):
     def cmd_match(args):
@@ -164,26 +197,36 @@ def cli(cmdstr=None):
 
     def cmd_count(args):
         logging.debug(repr(args))
-        if args.format == "text": inobj1 = args.inpath1
-        elif args.format in ("ftext_org", "ftext_now"):
-            if args.format == "ftext_org": inobj1, _ = load_ftext(args.inpath1)
-            else: _, inobj1 = load_ftext(args.inpath1)
-            inobj1 = [t.text for t in inobj1]
-        counter = count_char(inobj1)
-        n_chars = sum(len(l) for l in inobj1)
-        n_types = len(counter)
-        logging.info(f"{len(inobj1)} lines, {n_chars} chars in total, {n_types} types of chars")
+        
+        # gather inpaths
+        inpaths = []
+        for path in args.inpaths:
+            if os.path.isdir(path):
+                inpaths.extend(glob(os.path.join(path, "*.txt")))
+            else: inpaths.extend(glob(path))
+        
+        # load inpaths
+        counter = Counter()
+        n_lines = 0
+        for inpath in inpaths:
+            if args.format == "text": 
+                lines = readlines(readbytes(inpath))
+            elif args.format in ("ftext_org", "ftext_now"):
+                if args.format == "ftext_org": ftexts, _ = load_ftext(inpath)
+                else: _, ftexts = load_ftext(inpath)
+                lines = [t.text for t in ftexts]
+            n_lines += len(lines)
+            _counter = count_line(lines)
+            n_chars = sum(_counter.values())
+            n_types = len(_counter)
+            counter.update(_counter)
+            logging.info(f"n_line={len(lines)} n_char={n_chars} n_type={n_types} path={inpath}")
 
-        sbufio = StringIO()
-        chars = counter.most_common(args.most_common)
-        wr = csv.DictWriter(sbufio, ["char", "count"])
-        wr.writeheader()
-        for (k, v) in chars:
-            t = {"char": k, "count": v}
-            wr.writerow(t)
-            logging.info(t)
-        if args.outpath:
-            writebytes(args.outpath, codecs.BOM_UTF8 + writelines([sbufio.getvalue()]))
+        # summary charset and save
+        n_chars = sum(counter.values())
+        n_types = len(counter)
+        logging.info(f"n_line={n_lines} n_char={n_chars} n_type={n_types} path=*")
+        if args.outpath: save_counter(counter, args.outpath, args.most_common)
 
     p = argparse.ArgumentParser(description=__description__)
     p2 = p.add_subparsers(title="operations")
@@ -200,7 +243,7 @@ def cli(cmdstr=None):
     p_match.add_argument("inpath1")
     p_match.add_argument("inpath2")
     p_count.set_defaults(handler=cmd_count)
-    p_count.add_argument("inpath1")
+    p_count.add_argument("inpaths", nargs='+', help="inpaths to count, can aslo use glob")
     p_count.add_argument("-n", "--most_common", type=int, 
         default=None, help="show how many most common chars")
 
@@ -221,4 +264,5 @@ v0.2, count_glphy for building font
 v0.2.1, fix read_format_multi bug
 v0.2.2, add typing hint and no dependency to bintext
 v0.3, reamke with libutil v0.6
+v0.3.1, change count inpath to mutlity directory, add save|load_counter
 """

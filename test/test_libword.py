@@ -28,7 +28,7 @@ class TestWordOperations(unittest.TestCase):
 
     def test_example_countchar(self):
         lines = ["a1a2a3a4", "b1b2b3b4", "c1c2c3c4", "d1d2d3d4"]
-        counter = libword.count_char(lines)
+        counter = libword.count_line(lines)
         self.assertEqual(sum(len(l) for l in lines), len(list(counter.elements())))
 
 if __name__ == '__main__':
