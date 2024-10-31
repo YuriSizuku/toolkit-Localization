@@ -67,6 +67,8 @@ test_ftextcvt()
     python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all//build/COM001.docx
     python src/ftextcvt.py project/pysrc_all//build/COM001.docx -o project/pysrc_all//build/COM001.docx.txt
     python src/ftextcvt.py project/pysrc_all//build/COM001.json.txt -o project/pysrc_all//build/COM001.json.txt
+    python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001_split.txt --split 3
+    python src/ftextcvt.py project/pysrc_all/build/COM001_split.txt -o project/pysrc_all/build/COM001_merge.txt --merge 3
 }
 
 test_all()

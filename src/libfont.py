@@ -520,7 +520,7 @@ def cli(cmdstr=None):
     for t in [p_tbl_make, p_tbl_align, p_tbl_merge, p_font_make, p_font_extract]:
         t.add_argument("-o", "--outpath", default="out")
         t.add_argument("--log_level", default="info", help="set log level", 
-            choices=("none", "critical", "error", "warnning", "info", "debug"))
+            choices=("none", "critical", "error", "warning", "info", "debug"))
         
     # tbl operations
     for t in [p_tbl_make, p_tbl_align, p_tbl_merge]:

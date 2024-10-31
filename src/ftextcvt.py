@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 __description__ = """
 A convert tool to change or adjust ftext
-    v0.3, developed by devseed
+    v0.3.1, developed by devseed
 """
 
 import os
+import math
 import codecs
 import argparse
 import json
 from io import StringIO
+from glob import glob
 from csv import DictWriter, DictReader
 from docx import Document # pip install python-docx
 from docx.shared import Pt
@@ -19,7 +21,7 @@ try:
 except ImportError:
     exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
 
-__version__ = 300
+__version__ = 310
 
 @filter_loadfiles((0, 'utf-8'))
 def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
@@ -162,17 +164,45 @@ def cli(cmdstr=None):
         else: flag = True
         if not flag: return
         raise NotImplementedError(f"convert not support {inpath_ext}->{outpath_ext}")
+    
+    def cmd_split():
+        outbase = os.path.splitext(args.outpath)[0]
+        ftexts1, ftexts2 = load_ftext(args.inpath)
+        nfile = args.split
+        if nfile ==0: raise ValueError("nfile can not be 0")
+        nftextall = len(ftexts1)
+        nftexteach = (nftextall + nfile - 1) // nfile
+        for i in range(nfile):
+            outpath = outbase + f"_{i}.txt"
+            s = slice(i*nftexteach, min((i+1)*nftexteach, nftextall))
+            save_ftext(ftexts1[s], ftexts2[s], outpath)
+    
+    def cmd_merge():
+        nfile = args.merge
+        if nfile == 0:  inpaths = glob(args.inpath)
+        else:  inpaths = [os.path.splitext(args.inpath)[0] + f"_{i}.txt" for i in range(nfile)]
+        ftexts1, ftexts2 = [], []
+        for inpath in inpaths:
+            _f1, _f2 = load_ftext(inpath)
+            ftexts1.extend(_f1); ftexts2.extend(_f2)
+        save_ftext(ftexts1, ftexts2, args.outpath)
 
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument("inpath")
     parser.add_argument("-o", "--outpath", default="out.txt")
+    method = parser.add_mutually_exclusive_group()
+    method.add_argument("--split", metavar="nfile", type=int, default=None)
+    method.add_argument("--merge", metavar="nfile", type=int, default=None)
+    method.add_argument("--convert", action="store_true")
 
     args = parser.parse_args(cmdstr.split(' ') if cmdstr else None)
     inpath, outpath = args.inpath, args.outpath
     outpath = outpath if len(outpath) > 0 else None
     inpath_ext = os.path.splitext(inpath)[1].lower()
     outpath_ext = os.path.splitext(outpath)[1].lower()
-    cmd_convert()
+    if args.split is not None: cmd_split()
+    elif args.merge is not None: cmd_merge()
+    else: cmd_convert()
 
 if __name__ == '__main__':
     cli()
@@ -182,4 +212,5 @@ history:
 v0.1, initial version with formatftext, docx2ftext, ftext2docx
 v0.2, add support for csv and json, compatiable with paratranz.cn
 v0.3, remake according to libtext v0.6
+v0.3.1, add split merge ftext
 """

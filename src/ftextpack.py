@@ -22,7 +22,7 @@ try:
     from libtext import encode_extend
 except ImportError:
     exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl")
-    exec("from libtext_v610 import encode_extend")
+    exec("from libtext_v630 import encode_extend")
 
 __version__ = 210
 
@@ -208,7 +208,7 @@ def cli(cmdstr=None):
     parser.add_argument("-r", "--text_replace", default=None, type=str, 
         action='append', nargs=2, metavar=('src', 'dst'), help="replace the text before encoding")
     parser.add_argument("--log_level", default="info", help="set log level", 
-        choices=("none", "critical", "error", "warnning", "info", "debug"))
+        choices=("none", "critical", "error", "warning", "info", "debug"))
     parser.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
     parser.add_argument('--bytes_fallback', type=str, default=None, help="bytes after tbl failed")
     parser.add_argument("--pack_sort", default="hash", 

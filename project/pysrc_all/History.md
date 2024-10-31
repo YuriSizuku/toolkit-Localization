@@ -2,7 +2,7 @@
 
 * `libtext.py`  
 
-``` python
+``` shell
 # `binary_text.py` -> `bintext.py` -> `libbintext.py` ->
 v0.1, initial version with utf-8 support
 v0.2, added tbl and decodetbl, encodetbl, check with tbl
@@ -27,6 +27,8 @@ v0.5.7, add repalced map in check method, fix -e in check
 v0.5.8, add f_extension for {{}}, f_adjust in patch_text, and align for patch
 v0.6, remake to increase speed and simplify functions
 v0.6.1, add batch mode on extract, insert to optimize performance
+v0.6.2, add referencoding, refertbl
+v0.6.3, add decode_tbl text_fallback parameter, decode_general
 ```
 
 * `libfont.py`
@@ -72,6 +74,7 @@ v0.2, count_glphy for building font
 v0.2.1, fix read_format_multi bug
 v0.2.2, add typing hint and no dependency to bintext
 v0.3, reamke with libutil v0.6
+v0.3.1, change count inpath to mutlity directory, add save|load_counter
 ```
 
 * `ftextpack.py`
@@ -89,4 +92,5 @@ v0.2.1, use batch operations to improve performance
 v0.1, initial version with formatftext, docx2ftext, ftext2docx
 v0.2, add support for csv and json, compatiable with paratranz.cn
 v0.3, remake according to libtext v0.6
+v0.3.1, add split merge ftext
 ```

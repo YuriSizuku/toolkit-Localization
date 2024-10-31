@@ -327,7 +327,7 @@ def cli(cmdstr=None):
     for t in [p_encode, p_decode]:
         t.add_argument("-o", "--outpath", default="out")
         t.add_argument("--log_level", default="info", help="set log level", 
-            choices=("none", "critical", "error", "warnning", "info", "debug"))
+            choices=("none", "critical", "error", "warning", "info", "debug"))
         t.add_argument("--batch", action="store_true", help="batch mode on inpath, outpath")
         t.add_argument("--format", default="tile", choices=["tile"], help="output format")
         t.add_argument("--palette", type=str, default=None)

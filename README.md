@@ -138,6 +138,10 @@ python src/ftextpack.py --batch "test/sample;COM001" "test/sample;COM001.txt" -o
 # json convert
 python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001.json
 python src/ftextcvt.py project/pysrc_all/build/COM001.json -o project/pysrc_all/build/COM001.json.txt
+
+# split merge ftext
+python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all/build/COM001_split.txt --split 3
+python src/ftextcvt.py test/sample/COM001_split_*.txt -o project/pysrc_all/build/COM001_merge.txt --merge 0
 ```
 
 ## File Formats
@@ -203,7 +207,8 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 * [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta), [0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
 * [x] remake `libword.py`, [v0.4.6beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.6beta)
-* [x] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
+* [x] add collated batch files input to improve io performance [v0.5](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.5)
+* [x] add split/merge ftexts in `ftextcvt.py` [v0.5.3](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.5.3)
 
 ## History
 

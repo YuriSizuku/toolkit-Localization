@@ -235,7 +235,7 @@ def cli(cmdstr=None):
     for t in (p_match, p_count):
         t.add_argument("-o", "--outpath", default="out")
         t.add_argument("--log_level", default="info", help="set log level", 
-            choices=("none", "critical", "error", "warnning", "info", "debug"))
+            choices=("none", "critical", "error", "warning", "info", "debug"))
         t.add_argument("--format", choices=["ftext_org", "ftext_now", "text"], 
             default="text", help="the format of input file")
         
