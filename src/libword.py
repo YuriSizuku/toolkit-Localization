@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 __description__ = """
 A word tool for text operation, such as match, count
-    v0.3.1, developed by devseed
+    v0.3.2, developed by devseed
 """
 
 import os
@@ -21,7 +21,7 @@ try:
 except ImportError:
     exec("from libutil_v600 import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext")
 
-__version__ = 310
+__version__ = 320
 
 # algorithms for string
 def calc_lcs(s1: str, s2: str, cache_max=256) -> int:
@@ -85,22 +85,25 @@ def calc_lev(s1: str, s2: str, cache_max=256) -> int:
 # text operation
 @filter_loadfiles([(0, "utf-8", "ignore", True), (1, "utf-8", "ignore", True)])
 def match_line(lines1obj: List[str], lines2obj: List[str], *, 
+    show_progress=False, min_len=0, 
     f_distance: Callable[[str, str], int]=None, 
     f_theshod: Callable[[str, str, int], bool]=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     match the lines1 and lines 2 by calculate the distance
+    :param show_progess: print the match result for every line
+    :param min_len: the min length to match
     :param f_distance: f_distance(s1, s2), calculate the distance of two text
     :param f_theshod:  f_theshod(s1, s2, d), if skip match, return False
     :return: (l1match, l2match), for record index, -1 for no match 
     """ 
 
     def distance(s1, s2) -> int:
-        return len(s1) + len(s2) - 2*calc_lcs(s1, s2) 
+        return calc_lev(s1, s2)
 
     def threshod(s1, s2, d) -> bool:
         l1, l2 = len(s1), len(s2)
-        if max(d/l1, d/l2) < 0.1: return True
-        if abs(abs(l1-l2) - d) <= 2: return True
+        if max(d/l1, d/l2) < 0.25: return True
+        if d <= 3 and max(l1, l2) > 2*d: return True
         return False
 
     lines1, lines2 = lines1obj, lines2obj
@@ -109,7 +112,9 @@ def match_line(lines1obj: List[str], lines2obj: List[str], *,
     if f_distance == None: f_distance = distance
     if f_theshod == None: f_theshod = threshod
     for i1, s1 in enumerate(lines1):
+        match_flag = False
         i2min, dmin = 0, 0x7fffffff
+        if len(s1) < min_len : continue # skip small text
         for i2, s2 in enumerate(lines2):
             d = f_distance(s1, s2)
             if d < dmin: 
@@ -117,8 +122,12 @@ def match_line(lines1obj: List[str], lines2obj: List[str], *,
                 if d==0: break
             elif d == dmin and line2_match[i2] < 0:
                 i2min, dmin = i2, d
+        s2 = lines2[i2min]
         if f_theshod(s1, s2, dmin): 
+            match_flag = True
             line1_match[i1], line2_match[i2min] = i2min, i1
+        if show_progress:
+            print(f"{i1+1}/{len(lines1)} {match_flag} d={dmin} i2={i2min} s1='{s1}' s2='{s2}'")
     return line1_match, line2_match
 
 @filter_loadfiles((0, "utf-8", "ignore", True))
@@ -265,4 +274,5 @@ v0.2.1, fix read_format_multi bug
 v0.2.2, add typing hint and no dependency to bintext
 v0.3, reamke with libutil v0.6
 v0.3.1, change count inpath to mutlity directory, add save|load_counter
+v0.3.2, change match_line to use lev distance, fix threadshod bug
 """
