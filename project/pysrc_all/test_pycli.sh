@@ -44,9 +44,12 @@ test_libimage()
 test_libword()
 {
     echo "## test libword"
+    mkdir -p project/pysrc_all/build/
     python src/libword.py match --format ftext_now test/sample/COM001.txt test/sample/COM001.txt -o project/pysrc_all/build/COM001_match.csv
     python src/libword.py count --format ftext_org test/sample/COM001.txt -o project/pysrc_all/build/COM001_count.csv -n 3
-    python src/libword.py count --format ftext_now test/sample/COM001.txt test/sample/*.txt -o project/pysrc_all/build/COM001_count2.csv
+    python src/libword.py count --format ftext_org test/sample/COM001.txt test/sample/*.txt -o project/pysrc_all/build/COM001_org.csv
+    python src/libword.py count --format ftext_now test/sample/COM001.txt test/sample/*.txt -o project/pysrc_all/build/COM001_now.csv
+    python src/libword.py count --format counter project/pysrc_all/build/COM001_org.csv project/pysrc_all/build/COM001_now.csv -o project/pysrc_all/build/COM001_orgnow.csv
 }
 
 test_ftextpack()

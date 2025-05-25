@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 __description__ = """
 A word tool for text operation, such as match, count
-    v0.3.2, developed by devseed
+    v0.3.3, developed by devseed
 """
 
 import os
@@ -21,7 +21,7 @@ try:
 except ImportError:
     exec("from libutil_v600 import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext")
 
-__version__ = 320
+__version__ = 330
 
 # algorithms for string
 def calc_lcs(s1: str, s2: str, cache_max=256) -> int:
@@ -218,18 +218,23 @@ def cli(cmdstr=None):
         counter = Counter()
         n_lines = 0
         for inpath in inpaths:
-            if args.format == "text": 
-                lines = readlines(readbytes(inpath))
-            elif args.format in ("ftext_org", "ftext_now"):
-                if args.format == "ftext_org": ftexts, _ = load_ftext(inpath)
-                else: _, ftexts = load_ftext(inpath)
-                lines = [t.text for t in ftexts]
-            n_lines += len(lines)
-            _counter = count_line(lines)
-            n_chars = sum(_counter.values())
-            n_types = len(_counter)
-            counter.update(_counter)
-            logging.info(f"n_line={len(lines)} n_char={n_chars} n_type={n_types} path={inpath}")
+            if args.format == "counter":
+                cur_counter = load_counter(inpath)
+                n_lines  += len(cur_counter)
+                counter += cur_counter
+            else:
+                if args.format == "text": 
+                    lines = readlines(readbytes(inpath))
+                elif args.format in ("ftext_org", "ftext_now"):
+                    if args.format == "ftext_org": ftexts, _ = load_ftext(inpath)
+                    else: _, ftexts = load_ftext(inpath)
+                    lines = [t.text for t in ftexts]
+                n_lines += len(lines)
+                _counter = count_line(lines)
+                n_chars = sum(_counter.values())
+                n_types = len(_counter)
+                counter.update(_counter)
+                logging.info(f"n_line={len(lines)} n_char={n_chars} n_type={n_types} path={inpath}")
 
         # summary charset and save
         n_chars = sum(counter.values())
@@ -245,7 +250,7 @@ def cli(cmdstr=None):
         t.add_argument("-o", "--outpath", default="out")
         t.add_argument("--log_level", default="info", help="set log level", 
             choices=("none", "critical", "error", "warning", "info", "debug"))
-        t.add_argument("--format", choices=["ftext_org", "ftext_now", "text"], 
+        t.add_argument("--format", choices=["ftext_org", "ftext_now", "text", "counter"], 
             default="text", help="the format of input file")
         
     p_match.set_defaults(handler=cmd_match)
@@ -275,4 +280,5 @@ v0.2.2, add typing hint and no dependency to bintext
 v0.3, reamke with libutil v0.6
 v0.3.1, change count inpath to mutlity directory, add save|load_counter
 v0.3.2, change match_line to use lev distance, fix threadshod bug
+v0.3.3, add cmd_count counter choice to merge multi counter
 """
