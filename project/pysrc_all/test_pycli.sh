@@ -65,6 +65,8 @@ test_ftextcvt()
     echo "## test ftextcvt"
     python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all//build/COM001.json
     python src/ftextcvt.py project/pysrc_all//build/COM001.json -o project/pysrc_all//build/COM001.json.txt
+    python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all//build/COM001.paratranz
+    python src/ftextcvt.py project/pysrc_all//build/COM001.paratranz -o project/pysrc_all//build/COM001.paratranz.txt
     python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all//build/COM001.csv
     python src/ftextcvt.py project/pysrc_all//build/COM001.csv -o project/pysrc_all//build/COM001.csv.txt
     python src/ftextcvt.py test/sample/COM001.txt -o project/pysrc_all//build/COM001.docx

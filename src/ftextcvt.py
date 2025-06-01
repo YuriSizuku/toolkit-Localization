@@ -1,27 +1,31 @@
 # -*- coding: utf-8 -*-
 __description__ = """
 A convert tool to change or adjust ftext
-    v0.3.1, developed by devseed
+    v0.3.2, developed by devseed
 """
 
 import os
-import math
 import codecs
 import argparse
 import json
 from io import StringIO
 from glob import glob
 from csv import DictWriter, DictReader
-from docx import Document # pip install python-docx
-from docx.shared import Pt
 from typing import Union, List, Dict
+
+try:
+    from docx import Document # pip install python-docx
+    from docx.shared import Pt
+except Exception:
+    Document = None
+    pass
 
 try:
     from libutil import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext
 except ImportError:
     exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
 
-__version__ = 310
+__version__ = 320
 
 @filter_loadfiles((0, 'utf-8'))
 def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
@@ -85,6 +89,35 @@ def ftext2json(ftextobj: Union[str, List[str]], outpath=None) -> List[str]:
     if outpath: writebytes(outpath, jstr.encode("utf-8"))
     return jstr.splitlines(True)
 
+def ftext2paratranz(ftextobj: Union[str, List[str]], outpath=None, width_index = (5, 6, 3)) -> List[str]:
+    """
+    convert ftext2 to paratranz json format
+    [
+        {
+            "key": "num|addr|size",
+            "original": "source text 原文 2",
+            "translation": "translation text 译文 2"
+        }
+    ]
+    """
+    
+    ftexts1, ftexts2 = load_ftext(ftextobj)
+    assert(len(ftexts1) == len(ftexts2))
+    
+    width_num, width_addr, width_size = width_index
+    keypattern = "{num:0%dd}|{addr:0%dX}|{size:0%dX}" % (width_num, width_addr, width_size)
+    jarr: List[Dict[str: str]] = []
+    for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
+        jarr.append({
+            "key":  keypattern.format(num=i, addr=t1.addr, size=t1.size), 
+            "original" : t1.text, 
+            "translation" : t2.text if t2.text != t1.text else ""
+        })
+    
+    jstr = json.dumps(jarr, ensure_ascii=False, indent=2)
+    if outpath: writebytes(outpath, jstr.encode("utf-8"))
+    return jstr.splitlines(True)
+
 @filter_loadfiles([(0, "utf-8")])
 def ftext2docx(linesobj: Union[str, List[str]], outpath=None) -> Document:
     """
@@ -136,6 +169,17 @@ def json2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
     assert(len(ftexts1) == len(ftexts2))
     return save_ftext(ftexts1, ftexts2, outpath)
 
+@filter_loadfiles(0)
+def paratranz2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
+    ftexts1, ftexts2 = [], []
+    for i, t in enumerate(json.loads(binobj)):
+        text1, text2 = t["original"], t["translation"]
+        k1, k2, k3 = t["key"].split("|")
+        ftexts1.append(ftext_t(int(k2, 16), int(k3, 16), text1))
+        ftexts2.append(ftext_t(int(k2, 16), int(k3, 16), text2 if text2!="" else text1))
+    assert(len(ftexts1) == len(ftexts2))
+    return save_ftext(ftexts1, ftexts2, outpath)
+
 def docx2ftext(docxobj, outpath=None) -> List[str]:
     lines = []
     document = Document(docxobj)
@@ -146,6 +190,7 @@ def docx2ftext(docxobj, outpath=None) -> List[str]:
     if outpath: writebytes(outpath, writelines(lines))
     return lines
 
+
 def cli(cmdstr=None):
     def cmd_convert():
         flag = False
@@ -154,11 +199,13 @@ def cli(cmdstr=None):
             elif outpath_ext == '.docx': ftext2docx(inpath, outpath)
             elif outpath_ext == '.csv': ftext2csv(inpath, outpath)
             elif outpath_ext == ".json": ftext2json(inpath, outpath)
+            elif outpath_ext == ".paratranz": ftext2paratranz(inpath, outpath)
             else: flag = True
         elif outpath_ext == '.txt': # others to ftext
             if inpath_ext == '.docx': docx2ftext(inpath, outpath)
             elif inpath_ext == '.csv': csv2ftext(inpath, outpath)
             elif inpath_ext == '.json': json2ftext(inpath, outpath)
+            elif inpath_ext == ".paratranz": paratranz2ftext(inpath, outpath)
             else: flag = True
             return
         else: flag = True
@@ -213,4 +260,5 @@ v0.1, initial version with formatftext, docx2ftext, ftext2docx
 v0.2, add support for csv and json, compatiable with paratranz.cn
 v0.3, remake according to libtext v0.6
 v0.3.1, add split merge ftext
+v0.3.2, add paratranz json format
 """
