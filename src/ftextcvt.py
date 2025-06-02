@@ -27,6 +27,10 @@ except ImportError:
 
 __version__ = 320
 
+PARATRANZ_CONFIG = {
+    "trans" :   None
+}
+
 @filter_loadfiles((0, 'utf-8'))
 def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
     """
@@ -106,12 +110,26 @@ def ftext2paratranz(ftextobj: Union[str, List[str]], outpath=None, width_index =
     
     width_num, width_addr, width_size = width_index
     keypattern = "{num:0%dd}|{addr:0%dX}|{size:0%dX}" % (width_num, width_addr, width_size)
+    trans_method = PARATRANZ_CONFIG["trans"]
+    
     jarr: List[Dict[str: str]] = []
     for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
+        text1, text2 = t1.text, t2.text
+        stage = 0
+        if trans_method == "none":
+            text2 = ""
+            stage = 0
+        elif trans_method == "diff":
+            if text1 == text2 : text2 = ""
+            else: stage = 1
+        elif trans_method == "all":
+            if text2 != "": stage = 1
+
         jarr.append({
             "key":  keypattern.format(num=i, addr=t1.addr, size=t1.size), 
-            "original" : t1.text, 
-            "translation" : t2.text if t2.text != t1.text else ""
+            "original" : text1, 
+            "translation" : text2,
+            "stage" : stage
         })
     
     jstr = json.dumps(jarr, ensure_ascii=False, indent=2)
@@ -172,11 +190,20 @@ def json2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
 @filter_loadfiles(0)
 def paratranz2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
     ftexts1, ftexts2 = [], []
+    trans_method = PARATRANZ_CONFIG["trans"]
+
     for i, t in enumerate(json.loads(binobj)):
         text1, text2 = t["original"], t["translation"]
         k1, k2, k3 = t["key"].split("|")
+        if trans_method == "none": 
+            text2 = text1
+        elif trans_method == "diff":
+            if text2 == "" : text2 = text1
+        elif trans_method == "all":
+            pass
         ftexts1.append(ftext_t(int(k2, 16), int(k3, 16), text1))
-        ftexts2.append(ftext_t(int(k2, 16), int(k3, 16), text2 if text2!="" else text1))
+        ftexts2.append(ftext_t(int(k2, 16), int(k3, 16), text2))
+
     assert(len(ftexts1) == len(ftexts2))
     return save_ftext(ftexts1, ftexts2, outpath)
 
@@ -189,7 +216,6 @@ def docx2ftext(docxobj, outpath=None) -> List[str]:
         lines.append(line + '\n')
     if outpath: writebytes(outpath, writelines(lines))
     return lines
-
 
 def cli(cmdstr=None):
     def cmd_convert():
@@ -241,8 +267,12 @@ def cli(cmdstr=None):
     method.add_argument("--split", metavar="nfile", type=int, default=None)
     method.add_argument("--merge", metavar="nfile", type=int, default=None)
     method.add_argument("--convert", action="store_true")
-
+    parser.add_argument("--paratranz-trans", default=None, choices=["none", "diff", "all"])
     args = parser.parse_args(cmdstr.split(' ') if cmdstr else None)
+
+    if args.paratranz_trans is not None:
+        PARATRANZ_CONFIG["trans"] = args.paratranz_trans
+
     inpath, outpath = args.inpath, args.outpath
     outpath = outpath if len(outpath) > 0 else None
     inpath_ext = os.path.splitext(inpath)[1].lower()
