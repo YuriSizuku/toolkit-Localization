@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-__description__ = """
+__version__ = "0.3.2"
+__description__ = f"""
 A convert tool to change or adjust ftext
-    v0.3.2, developed by devseed
+    v{__version__}, developed by devseed
 """
 
 import os
@@ -23,9 +24,7 @@ except Exception:
 try:
     from libutil import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext
 except ImportError:
-    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
-
-__version__ = 320
+    exec("from libutil_v0_6 import writelines, writebytes, filter_loadfiles, ftext_t, load_ftext, save_ftext")
 
 PARATRANZ_CONFIG = {
     "trans" :   None

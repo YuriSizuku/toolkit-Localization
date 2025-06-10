@@ -4,7 +4,7 @@ such as chcp codepage, replace font, replace path by pattern
     v0.1, developed by devseed
 */
 
-const WINREDIRECT_VERSION = 100;
+const VERSION = "0.1";
 
 function chcp(codepage=-1, mute_log=false)
 {

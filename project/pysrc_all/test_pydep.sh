@@ -1,4 +1,4 @@
-for file in `ls build/*_v*.py`; do
-   echo "## test $file"
-   python $file -h 1>/dev/null
+for fpath in `ls $(dirname $0)/build/*_v*.py`; do
+   echo "## test $fpath"
+   python $fpath -h 1>/dev/null
 done

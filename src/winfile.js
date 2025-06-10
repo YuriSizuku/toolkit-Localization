@@ -3,7 +3,7 @@ use this script to log the windows file api function
     v0.1, developed by devseed
 */
 
-const WINFILE_VERSION = 100;
+const VERSION = "0.1";
 
 function hook_cfile(idx=0)
 {

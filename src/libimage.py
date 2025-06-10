@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-__description__ = """
+__version__ = "0.3.1"
+__description__ = f"""
 A image tool (remake) for image encoding or decoding, 
 all the intermediate format is rgba, index in alpha channel
-    v0.3.1, develope by devseed
+    v{__version__}, develope by devseed
 """
 
 import math
@@ -19,9 +20,7 @@ readonly = lambda dtype, dim: numba.types.Array(dtype, dim, "C", True)
 try:
     from libutil import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_batch, valid_tile
 except ImportError:
-    exec("from libutil_v600 import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_batch, valid_tile")
-
-__version__ = 310
+    exec("from libutil_v0_6 import tile_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, load_batch, valid_tile")
 
 # methods for generate patterns
 def make_swizzle_pattern(tileorder) -> np.ndarray:

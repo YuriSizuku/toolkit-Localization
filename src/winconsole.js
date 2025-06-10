@@ -3,7 +3,7 @@ use this script to allocate a console on some program
     v0.1, developed by devseed
 */
 
-const WINCONSOLE_VERSION = 100;
+const VERSION = "0.1";
 
 function hook_console()
 {

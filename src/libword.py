@@ -1,7 +1,8 @@
  # -*- coding: utf-8 -*-
-__description__ = """
+__version__ = "0.3.3"
+__description__ = f"""
 A word tool for text operation, such as match, count
-    v0.3.3, developed by devseed
+    v{__version__}, developed by devseed
 """
 
 import os
@@ -19,9 +20,7 @@ import numpy as np
 try:
     from libutil import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext
 except ImportError:
-    exec("from libutil_v600 import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext")
-
-__version__ = 330
+    exec("from libutil_v0_6 import readlines, writelines, readbytes, writebytes, filter_loadfiles, load_ftext")
 
 # algorithms for string
 def calc_lcs(s1: str, s2: str, cache_max=256) -> int:

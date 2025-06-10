@@ -1,7 +1,8 @@
  # -*- coding: utf-8 -*-
-__description__ = """
+__version__ = "0.3.1"
+__description__ = f"""
 A font tool (remake) for tbl and glphy operations
-    v0.3.1, developed by devseed
+    v{__version__}, developed by devseed
 """
 
 import os
@@ -16,12 +17,10 @@ from typing import Callable, Union, Tuple, List, Dict, Set
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
-__version__ = 311
-
 try:
     from libutil import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile, load_tbl, save_tbl
 except ImportError:
-    exec("from libutil_v600 import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile, load_tbl, save_tbl")
+    exec("from libutil_v0_6 import tile_t, tbl_t, writebytes, writeimage, filter_loadfiles, filter_loadimages, valid_tile, load_tbl, save_tbl")
 
 # tbl generations
 def make_cp932_tbl(range_full=True, text_fallback="♯", out_failed: List[int]=None) -> List[tbl_t]: 

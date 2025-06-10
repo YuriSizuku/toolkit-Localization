@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-__description__ = """
+__version__ = "0.2.1"
+__description__ = f"""
 A flexble format with low memory implementation
-    v0.2.1, developed by devseed
+    v{__version__}, developed by devseed
 
     use ftextpack.h to load dynamicly    
 """
@@ -21,10 +22,8 @@ try:
     from libutil import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl
     from libtext import encode_extend
 except ImportError:
-    exec("from libutil_v600 import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl")
-    exec("from libtext_v630 import encode_extend")
-
-__version__ = 210
+    exec("from libutil_v0_6 import writebytes, filter_loadfiles, ftext_t, load_batch, load_ftext, load_tbl")
+    exec("from libtext_v0_6_3 import encode_extend")
 
 # ftextpack functions
 class ftextpack_textinfo_t(Structure):

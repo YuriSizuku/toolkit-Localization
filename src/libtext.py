@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-__description__ = """
+__version__  = "0.6.3"
+__description__ = f"""
 A binary text tool (remake) for text exporting, importing and checking
-    v0.6.3, developed by devseed
+    v{__version__}, developed by devseed
 """
 
 import binascii
@@ -14,9 +15,7 @@ from typing import Callable, Tuple, Union, List, Dict
 try:
     from libutil import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl
 except ImportError:
-    exec("from libutil_v600 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl")
-
-__version__  = 630
+    exec("from libutil_v0_6 import writelines, writebytes, filter_loadfiles, ftext_t, tbl_t, jtable_t, msg_t, load_batch, save_ftext, load_ftext, load_tbl")
 
 # text basic functions
 def iscjk(c: str): 

@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define FTEXTPACK_VERSION 110
+#define FTEXTPACK_VERSION "0.1.1"
 
 typedef struct _ftextpack_textinfo_t {
     union 
