@@ -33,12 +33,12 @@ def calc_lcs(s1: str, s2: str, cache_max=256) -> int:
     if l2 == 0: return l1
     if cache_max <= 0:
         res = np.zeros((l1+1, l2+1), dtype=np.uint16)
-        calc_lcs._res = None                                                                             
+        calc_lcs._res = None
     else:
         if not hasattr(calc_lcs, "_res") or calc_lcs._res is None or calc_lcs._res.shape[0] < cache_max:
             res = np.zeros((cache_max, cache_max), dtype=np.uint16)
             calc_lcs._res = res
-        else: 
+        else:
             res = calc_lcs._res
             res[:l1+1, :l2+1].fill(0)
 
@@ -53,7 +53,7 @@ def calc_lev(s1: str, s2: str, cache_max=256) -> int:
     """
     Levenshtein distance (edit value)
     """
-    
+
     l1, l2 = len(s1), len(s2)
     if l1 == 0: return l2
     if l2 == 0: return l1
@@ -64,15 +64,15 @@ def calc_lev(s1: str, s2: str, cache_max=256) -> int:
         if not hasattr(calc_lev, "_res") or calc_lev._res is None or calc_lev._res.shape[0] < cache_max:
             res = np.zeros((cache_max, cache_max), dtype=np.uint16)
             calc_lev._res = res
-        else: 
+        else:
             res = calc_lev._res
             res[:l1, :l2].fill(0)
-    
+
     for i in range(0, l1):
         for j in range(0, l2):
             if min(i, j) == 0: # empty string, insert all in s1
                 res[i][j] = max(i, j)
-            else: 
+            else:
                 t = 1 if s1[i] != s2[j] else 0
                 res[i][j] = min(
                     res[i-1][j] + 1, # insert 1 char in s1
@@ -83,9 +83,9 @@ def calc_lev(s1: str, s2: str, cache_max=256) -> int:
 
 # text operation
 @filter_loadfiles([(0, "utf-8", "ignore", True), (1, "utf-8", "ignore", True)])
-def match_line(lines1obj: List[str], lines2obj: List[str], *, 
-    show_progress=False, min_len=0, 
-    f_distance: Callable[[str, str], int]=None, 
+def match_line(lines1obj: List[str], lines2obj: List[str], *,
+    show_progress=False, min_len=0,
+    f_distance: Callable[[str, str], int]=None,
     f_theshod: Callable[[str, str, int], bool]=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     match the lines1 and lines 2 by calculate the distance
@@ -93,8 +93,8 @@ def match_line(lines1obj: List[str], lines2obj: List[str], *,
     :param min_len: the min length to match
     :param f_distance: f_distance(s1, s2), calculate the distance of two text
     :param f_theshod:  f_theshod(s1, s2, d), if skip match, return False
-    :return: (l1match, l2match), for record index, -1 for no match 
-    """ 
+    :return: (l1match, l2match), for record index, -1 for no match
+    """
 
     def distance(s1, s2) -> int:
         return calc_lev(s1, s2)
@@ -116,13 +116,13 @@ def match_line(lines1obj: List[str], lines2obj: List[str], *,
         if len(s1) < min_len : continue # skip small text
         for i2, s2 in enumerate(lines2):
             d = f_distance(s1, s2)
-            if d < dmin: 
+            if d < dmin:
                 i2min, dmin = i2, d
                 if d==0: break
             elif d == dmin and line2_match[i2] < 0:
                 i2min, dmin = i2, d
         s2 = lines2[i2min]
-        if f_theshod(s1, s2, dmin): 
+        if f_theshod(s1, s2, dmin):
             match_flag = True
             line1_match[i1], line2_match[i2min] = i2min, i1
         if show_progress:
@@ -136,7 +136,7 @@ def count_line(linesobj: Union[List[str], str]) -> Counter:
     :param linesobj: lines or file name
     :return: char counter
     """
-    
+
     counter =  Counter()
     lines = linesobj
     for line in lines:
@@ -149,7 +149,7 @@ def save_counter(counter: Counter, outpath=None, n=None) -> List[str]:
     """
     save counter to csv file
     """
-    
+
     sbufio = StringIO()
     chars = counter.most_common(n)
     wr = csv.DictWriter(sbufio, ["char", "count"])
@@ -160,7 +160,7 @@ def save_counter(counter: Counter, outpath=None, n=None) -> List[str]:
     lines = sbufio.getvalue().splitlines(keepends=True)
     if outpath:
         writebytes(outpath, writelines(lines))
-    
+
     return lines
 
 @filter_loadfiles((0, 'utf8'))
@@ -168,7 +168,7 @@ def load_counter(inobj: Union[str, List[str]]) -> Counter:
     """
     load counter from csv file
     """
-    
+
     lines = inobj
     counter = Counter()
     for row in csv.DictReader(lines):
@@ -205,14 +205,14 @@ def cli(cmdstr=None):
 
     def cmd_count(args):
         logging.debug(repr(args))
-        
+
         # gather inpaths
         inpaths = []
         for path in args.inpaths:
             if os.path.isdir(path):
                 inpaths.extend(glob(os.path.join(path, "*.txt")))
             else: inpaths.extend(glob(path))
-        
+
         # load inpaths
         counter = Counter()
         n_lines = 0
@@ -222,7 +222,7 @@ def cli(cmdstr=None):
                 n_lines  += len(cur_counter)
                 counter += cur_counter
             else:
-                if args.format == "text": 
+                if args.format == "text":
                     lines = readlines(readbytes(inpath))
                 elif args.format in ("ftext_org", "ftext_now"):
                     if args.format == "ftext_org": ftexts, _ = load_ftext(inpath)
@@ -247,22 +247,22 @@ def cli(cmdstr=None):
     p_count = p2.add_parser("count", help="count texts or ftexts information")
     for t in (p_match, p_count):
         t.add_argument("-o", "--outpath", default="out")
-        t.add_argument("--log_level", default="info", help="set log level", 
+        t.add_argument("--log_level", default="info", help="set log level",
             choices=("none", "critical", "error", "warning", "info", "debug"))
-        t.add_argument("--format", choices=["ftext_org", "ftext_now", "text", "counter"], 
+        t.add_argument("--format", choices=["ftext_org", "ftext_now", "text", "counter"],
             default="text", help="the format of input file")
-        
+
     p_match.set_defaults(handler=cmd_match)
     p_match.add_argument("inpath1")
     p_match.add_argument("inpath2")
     p_count.set_defaults(handler=cmd_count)
     p_count.add_argument("inpaths", nargs='+', help="inpaths to count, can aslo use glob")
-    p_count.add_argument("-n", "--most_common", type=int, 
+    p_count.add_argument("-n", "--most_common", type=int,
         default=None, help="show how many most common chars")
 
     args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
-    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()),
                     format="%(levelname)s:%(funcName)s: %(message)s")
     if hasattr(args, "handler"): args.handler(args)
     else: p.print_help()

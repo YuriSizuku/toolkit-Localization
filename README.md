@@ -1,27 +1,27 @@
 # LocalizationTool
 
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/YuriSizuku/LocalizationTool?label=LocalizationTool&color=green) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pyexe.yml?label=pyexe)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pysrc.yml?label=pysrc)  
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/YuriSizuku/LocalizationTool?label=LocalizationTool&color=green) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pyexe.yml?label=pyexe)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/YuriSizuku/LocalizationTool/build_pysrc.yml?label=pysrc)
 
-🍀 General localization tools for galgame, seperated from my [WinReverse](https://github.com/YuriSizuku/toolkit-WinReverse)  
-See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for specific galgames.  
+🍀 General localization tools for galgame, seperated from my [WinReverse](https://github.com/YuriSizuku/toolkit-WinReverse)
+See also, [GalgameReverse](https://github.com/YuriSizuku/GalgameReverse) for specific galgames.
 
 ## Components
 
 ### cross platfrom libraries
 
-* `libutil.py`, basic serilization functions for ftext and tbl  
+* `libutil.py`, basic serilization functions for ftext and tbl
 * `libtext.py`, for text exporting and importing, checking
-* `libimage.py`, something about texture and picture convert  
+* `libimage.py`, something about texture and picture convert
 * `libfont.py`, for extracting, building tile font, or generating font picture.
-* `libword.py`, some matching and statistic method for text  
-* `ftextcvt.py`, convert the `ftext` format made by `libtext.py`  
-* `ftextpack.py`, method for packing `ftext` in a bin file with lower memory  
+* `libword.py`, some matching and statistic method for text
+* `ftextcvt.py`, convert the `ftext` format made by `libtext.py`
+* `ftextpack.py`, method for packing `ftext` in a bin file with lower memory
 
 ### windows platform libraries
 
-* `winconsole.js`,  allocate a console for game  
-* `winfile.js` , view information for both `CreateFile`, `ReadFile`, `WriteFile`, `fopen`,`fread`, `fwrite`  
-* `winredirect.js`, redirect font, codepage, and paths in games  
+* `winconsole.js`,  allocate a console for game
+* `winfile.js` , view information for both `CreateFile`, `ReadFile`, `WriteFile`, `fopen`,`fread`, `fwrite`
+* `winredirect.js`, redirect font, codepage, and paths in games
 
 ``` mermaid
 %%{init: {'theme':'forest'}}%%
@@ -38,7 +38,7 @@ w2[winfile.js]
 w3[windirect.js]
 
 l1 --> l2 --> t2
-l1 --> l5  
+l1 --> l5
 l1 --> l4
 l2 --> t1
 l1 --> l3 --> l4
@@ -47,7 +47,7 @@ w1 --- w2 --- w3
 
 ## CLI Example
 
-Install these libraries if you want to use python script.  
+Install these libraries if you want to use python script.
 
 ```shell
 python -m pip install python-docx # ftextcvt
@@ -65,13 +65,13 @@ sh -c "source project/pysrc_all/test_pycli.sh && test_all"
 **We use ">" to load or save files in zip, such as `path1/file1.zip>path2/file2`.**
 **As for the `--batch` mode, replace the inpath and outpath files to the list (txtfile, or string like `dir1;path1;path2...`), usually the first path is for the base directory location**
 
-See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).  
+See [test_pycli.sh](project/pysrc_all/test_pycli.sh) for details, binary build on winwdows are in [release](https://github.com/YuriSizuku/LocalizationTool/releases).
 
 ### libtext
 
 ```shell
 # insert ftext (save direct or in gz file)
-python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
+python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你"
 python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all/build/COM001_rebuild.bin.gz --log_level info
 
 # extract ftext from bin file (save direct or in zip file)
@@ -96,7 +96,7 @@ python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tb
 python src/libfont.py font_make --format tile "C:\Windows\Fonts\simhei.ttf" --tbl "test/sample/COM001.tbl" -o "project/pysrc_all/build/com001_font1614_2bpp.bin" --tilew 16 --tileh 14 --tilebpp 2 --palette "00 00 00 00 ff ff ff 60 ff ff ff a0 ff ff ff ff"
 
 # extract glphy operation
-mkdir -p "project/pysrc_all/build/com001_font24" 
+mkdir -p "project/pysrc_all/build/com001_font24"
 mkdir -p "project/pysrc_all/build/it"
 python src/libfont.py font_extract --format image "project/pysrc_all/build/com001_font24.png" -o "project/pysrc_all/build/com001_font24" --split_glphy --tilew 24 --tileh 24
 python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it" --split_glphy --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
@@ -108,7 +108,7 @@ python src/libfont.py font_extract --format tile "test/sample/it.bin" -o "projec
 
 ```shell
 # decode tile to image
-python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff" 
+python src/libimage.py decode --format tile "test/sample/it.bin" -o "project/pysrc_all/build/it_decode.png" --tilew 20 --tileh 18 --tilebpp 2 --tilesize 92 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
 
 # encode image to 1 tile
 python src/libimage.py encode --format tile "project/pysrc_all/build/it_decode.png" -o "project/pysrc_all/build/it_encode1.bin" --tilebpp 2 --palette "ff ff ff 00 ff ff ff 3f ff ff ff 8f ff ff ff ff"
@@ -146,14 +146,14 @@ python src/ftextcvt.py test/sample/COM001_split_*.txt -o project/pysrc_all/build
 
 ## File Formats
 
-### ftext (translation format text)  
+### ftext (translation format text)
 
-The ftext files are using `utf-8 unix lf` format to store. In the ftexts,  we use `●num|addr|size● org_text` for origin text reference and `○num|addr|size○ trans_text` for translation text edit.  Do not modify the index information within `●` or `○`, and must leave a space after `●` or `○`.  
+The ftext files are using `utf-8 unix lf` format to store. In the ftexts,  we use `●num|addr|size● org_text` for origin text reference and `○num|addr|size○ trans_text` for translation text edit.  Do not modify the index information within `●` or `○`, and must leave a space after `●` or `○`.
 
-Inside the ftext, `\r` and `\n` are replaced to `[\r]` and `[\n]`. We also use `{{}}` for input some custom formats or informations to process.  
+Inside the ftext, `\r` and `\n` are replaced to `[\r]` and `[\n]`. We also use `{{}}` for input some custom formats or informations to process.
 
 ``` shell
-# ftext example  
+# ftext example
 ○00002|00018D|04C○ 湧き出る温泉と豊かな自然に包まれた風光明媚な地で、知る人ぞ知る観光地である。
 ●00002|00018D|04C● 此地温泉涌流，自然繁茂，风光明媚。可谓是内行人都知晓的胜地。
 
@@ -170,13 +170,13 @@ Inside the ftext, `\r` and `\n` are replaced to `[\r]` and `[\n]`. We also use `
 ●00006|000381|032● ――此刻，正有一位美丽的女性，身披华光，款款行来。
 ```
 
-### fpack (translation format text pack, ftextpack)  
+### fpack (translation format text pack, ftextpack)
 
-Packing ftext files into a bin file, for optimizing the memory usage.  Usually use `ftextpack.py` to pack ftext files and `ftextpack.h` to search ftext in the game dynamic translation.  
+Packing ftext files into a bin file, for optimizing the memory usage.  Usually use `ftextpack.py` to pack ftext files and `ftextpack.h` to search ftext in the game dynamic translation.
 
-### tbl (translation word encoding table)  
+### tbl (translation word encoding table)
 
-In the format of `tcode=tchar`, usally used for custom codepage and glphy mapping.  
+In the format of `tcode=tchar`, usally used for custom codepage and glphy mapping.
 
 ```shell
 8140=　
@@ -200,9 +200,9 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 
 * [x] seperate Localizetion Tool from ReverseTool Repo, [v0.3.5sep](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.3.5sep)
 * [x] make unit test and cli test script
-* [x] write documentation about the project, such as format and cli example  
+* [x] write documentation about the project, such as format and cli example
 * [x] remake `libtext.py`, `libutil.py` to make more pythonic and easy to understand, [v0.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4beta)
-* [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format  
+* [x] remake `ftextpack.py`, `ftextcvt.py` and use unified format
 * [x] remake `libfont.py`, `libimage.py`, use numba to improve performance, [v0.4.2beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.2beta)
 * [x] finish `libfont.py` cli , [v0.4.3beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.3beta), [0.4.5beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.5beta)
 * [x] finish `libimage.py` cli, [v0.4.4beta](https://github.com/YuriSizuku/LocalizationTool/releases/tag/v0.4.4beta)
@@ -212,4 +212,4 @@ In the format of `tcode=tchar`, usally used for custom codepage and glphy mappin
 
 ## History
 
-See [History](project/pysrc_all/History.md).  
+See [History](project/pysrc_all/History.md).

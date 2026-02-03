@@ -27,7 +27,7 @@ def readlines_deprecated(data: bytes, encoding='utf-8', encoding_error='ignore')
     start = 0
     lines = []
     mem = memoryview(data)
-    while i < len(mem): 
+    while i < len(mem):
         if mem[i] == ord('\r'):
             if i+1 < len(mem) and mem[i+1] == '\n': i += 1
             lines.append(str(mem[start: i+1], encoding, encoding_error))
@@ -41,28 +41,28 @@ def readlines_deprecated(data: bytes, encoding='utf-8', encoding_error='ignore')
 
 def writelines(lines: List[str], encoding='utf-8', encoding_error='ignore') -> bytes:
     bufio = BytesIO()
-    for line in lines: 
+    for line in lines:
         bufio.write(line.encode(encoding, encoding_error))
     data = bufio.getvalue()
     bufio.close()
     return data
 
 def readbytes(inobj: Union[str, BytesIO]) -> bytes:
-    def load_gz(path) -> bytes: # path/x.gz 
-        with gzip.GzipFile(path, 'rb') as fp: 
+    def load_gz(path) -> bytes: # path/x.gz
+        with gzip.GzipFile(path, 'rb') as fp:
             return fp.read()
-        
+
     def load_zip(path) -> bytes: # path1/x.zip>path2/y
         path1, path2 = path.split(".zip>")
         path2 = path2.replace('\\', '/')
         with zipfile.ZipFile(path1 + ".zip", 'r') as fp1:
             with fp1.open(path2, 'r') as fp2:
                 return fp2.read()
-    
+
     def load_direct(path) -> bytes:
         with open(path, 'rb') as fp:
             return fp.read()
-        
+
     if type(inobj)==str:
         path = inobj
         if os.path.splitext(path)[1] == '.gz': data = load_gz(path)
@@ -73,10 +73,10 @@ def readbytes(inobj: Union[str, BytesIO]) -> bytes:
     return data
 
 def writebytes(outobj: Union[str, BytesIO], dataobj: Union[bytes, BytesIO]) -> int:
-    def save_gz(path, data) -> int: # path/x.gz 
-        with gzip.GzipFile(path, 'wb') as fp: 
+    def save_gz(path, data) -> int: # path/x.gz
+        with gzip.GzipFile(path, 'wb') as fp:
             return fp.write(data)
-        
+
     def save_zip(path, data) -> int: # path1/x.zip>path2/y
         path1, path2 = path.split(".zip>")
         path2 = path2.replace('\\', '/')
@@ -86,14 +86,14 @@ def writebytes(outobj: Union[str, BytesIO], dataobj: Union[bytes, BytesIO]) -> i
                     (now.year, now.month, now.day, now.hour, now.minute, now.second))
             fp1.writestr(info, data)
             return len(data)
-    
+
     def save_direct(path, data) -> int:
         with open(path, 'wb') as fp:
             return fp.write(data)
-        
+
     if type(dataobj) in {bytes, bytearray, memoryview}: data = dataobj
-    else: data = dataobj.read() 
-    
+    else: data = dataobj.read()
+
     size = 0
     if type(outobj)==str:
         path = outobj
@@ -112,11 +112,11 @@ def readimage(inobj: Union[bytes, str], pixel_format=None, img_format=None, pale
     :return: numpy array of image
     """
 
-    bufio = BytesIO(readbytes(inobj)) 
+    bufio = BytesIO(readbytes(inobj))
     fmt = None if img_format is None else [img_format]
     pil = Image.open(bufio, "r", fmt)
     pil.readonly = False
-    if palette is not None: 
+    if palette is not None:
         pil.apply_transparency() # add transparency to alpha
         pil_palette = pil.getpalette("RGBA")
         if pil_palette: palette.reshape((-1))[:len(pil_palette)] = pil_palette
@@ -146,12 +146,12 @@ def writeimage(outobj: Union[str, BytesIO], img, pixel_format=None, img_format="
 
 def filter_loadfiles(targets: Union[int, str, List]=None):
     """
-    :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore', False), 'k'], 
+    :params targets: can be 0, 'k', [0], [(0, 'utf8', 'ignore', False), 'k'],
     """
-    
+
     if targets == None: targets = [0]
     if type(targets) != list:  targets = [targets]
-    
+
     def wrapper1(func): # decorator(dec_args)(func)(fun_args)
         def wrapper2(*_args, **kw):
             args = list(_args)
@@ -170,12 +170,12 @@ def filter_loadfiles(targets: Union[int, str, List]=None):
 
 def filter_loadimages(targets: Union[int, str, List]=None):
     """
-    :params targets: can be 0, 'k', [0], [(0, 'RGBA', 'png', palette), 'k'], 
+    :params targets: can be 0, 'k', [0], [(0, 'RGBA', 'png', palette), 'k'],
     """
-    
+
     if targets == None: targets = [0]
     if type(targets) != list:  targets = [targets]
-    
+
     def wrapper1(func): # decorator(dec_args)(func)(fun_args)
         def wrapper2(*_args, **kw):
             args = list(_args)
@@ -248,11 +248,11 @@ def load_batch(strobj: str, *, encoding="utf-8", no_process=False) -> List[str]:
                  if len(line) > 0 and lines[0]!="#"]
     return lines
 
-def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t], 
+def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t],
         outpath: str = None, *, encoding="utf-8", width_index = (5, 6, 3)) -> List[str]:
     """
     format text, such as ●num|addr|size● text
-    :param ftexts1[]: text dict array in '○' line, 
+    :param ftexts1[]: text dict array in '○' line,
     :param ftexts2[]: text dict array in '●' line
     :return: ftext lines
     """
@@ -275,15 +275,15 @@ def save_ftext(ftexts1: List[ftext_t], ftexts2: List[ftext_t],
 
     if outpath: writebytes(outpath, writelines(lines, encoding))
 
-    return lines 
+    return lines
 
 @filter_loadfiles(0)
-def load_ftext(inobj: Union[str, List[str], Tuple], *, 
+def load_ftext(inobj: Union[str, List[str], Tuple], *,
         encoding="utf-8") -> Tuple[List[ftext_t], List[ftext_t]]:
     """
     format text, such as ●num|addr|size● text
     :param inobj: can be path, or lines[], in the end, no \r \n
-    :return: ftexts1[]: text dict array in '○' line, 
+    :return: ftexts1[]: text dict array in '○' line,
              ftexts2[]: text dict array in '●' line
     """
 
@@ -300,10 +300,10 @@ def load_ftext(inobj: Union[str, List[str], Tuple], *,
         _, t1, *t2 = line.split(indicator)
         t2 = "".join(t2)
         ftext = ftext_t(-1, 0, t2[1:])
-        try: 
+        try:
             _, t12, t13 = t1.split('|')
             ftext.addr, ftext.size = int(t12, 16), int(t13, 16)
-        except ValueError: pass 
+        except ValueError: pass
         if indicator=='○': ftexts1.append(ftext)
         else: ftexts2.append(ftext)
 
@@ -322,7 +322,7 @@ def save_tbl(tbl: List[tbl_t], outpath=None, *, encoding='utf-8')  -> List[str]:
 @filter_loadfiles(0)
 def load_tbl(inobj: Union[str, List[str], List[ftext_t]], *, encoding='utf-8') ->  List[tbl_t]:
     """
-    tbl file format "tcode=tchar", 
+    tbl file format "tcode=tchar",
     :param inobj: can be path, or lines[], in the end, no \r \n
     :return: [(charcode, charstr)]
     """

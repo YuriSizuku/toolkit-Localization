@@ -1,8 +1,8 @@
 /**
- * A flexible format and low memory use implementation 
+ * A flexible format and low memory use implementation
  * for general dynamic localization
  *   v0.1.1, developed by devseed
- *    
+ *
  *  use ftextpack_index_t.py to generate data.fp01
  *  you can pack all the ftexts files in a folder to single data file
 */
@@ -15,7 +15,7 @@
 #define FTEXTPACK_VERSION "0.1.1"
 
 typedef struct _ftextpack_textinfo_t {
-    union 
+    union
     {
         uint32_t hash; // crc32
         uint32_t extra; // user defined information
@@ -70,8 +70,8 @@ typedef struct _ftextpack_index_t {
     char magic[4]; // FP01, LP01 fp for full info, lp for brief info
     uint32_t count; // text info count
     uint32_t offset; // text offset
-    uint32_t reserved; 
-    union 
+    uint32_t reserved;
+    union
     {
         ftextpack_info_t info[1];
         ftextpack_map_t map[1];
@@ -86,7 +86,7 @@ uint32_t ftextpack_crc32(const void *buf, int n);
 
 /**
  * load index or index map (brief index) from file
- * @return whole index size 
+ * @return whole index size
 */
 int ftextpack_loadindex(FILE *fp, void *outbuf, int bufsize);
 int ftextpack_loadindexmap(FILE *fp, void *outbuf, int bufsize);
@@ -121,7 +121,7 @@ uint32_t ftextpack_crc32(const void *buf, int n)
 
         for(int i = 0; i < 8; i++)
         {
-            uint32_t t = ~((crc32&1) - 1); 
+            uint32_t t = ~((crc32&1) - 1);
             crc32 = (crc32>>1) ^ (0xEDB88320 & t);
         }
     }
@@ -137,7 +137,7 @@ int ftextpack_loadindex(FILE *fp, void *outbuf, int bufsize)
     if(bufsize < sizeof(ftextpack_index_t)) return 0;
     cur += sizeof(ftextpack_index_t) * fread(cur, sizeof(ftextpack_index_t), 1, fp);
     index->magic[0] = 'f';
-    
+
     int n = index->count;
     int leftsize = bufsize - sizeof(ftextpack_index_t);
     int leftn = (n-1) * sizeof(ftextpack_info_t) < leftsize ? n-1 : leftsize/sizeof(ftextpack_info_t);
@@ -152,16 +152,16 @@ int ftextpack_loadindexmap(FILE *fp, void *outbuf, int bufsize)
     ftextpack_index_t *index = (ftextpack_index_t*)outbuf;
     ftextpack_map_t *map = index->map;
     ftextpack_info_t tmpinfo;
-    
+
     uint8_t *cur = (uint8_t*)outbuf;
     if(bufsize < sizeof(ftextpack_index_t)) return 0;
     cur += sizeof(ftextpack_index_t) * fread(cur, sizeof(ftextpack_index_t), 1, fp);
     index->magic[0] = 'l';
-    
+
     int n = index->count;
     int leftsize = bufsize - sizeof(ftextpack_index_t);
     int leftn = (n-1) * sizeof(ftextpack_map_t) < leftsize ? n -1 : leftsize/sizeof(ftextpack_map_t);
-    
+
     memcpy(&tmpinfo, map, sizeof(tmpinfo));
     map->org.addr = tmpinfo.org.addr;
     map->now.offset = tmpinfo.now.offset;
@@ -191,7 +191,7 @@ int ftextpack_searchbyaddr(ftextpack_index_t *index, uint32_t addr, int start)
     {
         mid = (start + end) / 2;
         uint32_t addr_mid = index->magic[0] == 'l' ? map[mid].org.addr: info[mid].org.addr;
-        // LOG("start=%d, end=%d, addr=%x, addr_mid=%x, index=%p, map[mid]=%p\n", 
+        // LOG("start=%d, end=%d, addr=%x, addr_mid=%x, index=%p, map[mid]=%p\n",
         //     start, end, addr, addr_mid, index, &map[mid]);
         if(addr_mid > addr) end = mid - 1;
         else if(addr_mid < addr) start = mid + 1;
@@ -204,10 +204,10 @@ int ftextpack_loadtext(FILE *fp, ftextpack_info_t *info, void *outbuf, int bufsi
 {
     if(!fp) return 0;
     size_t offset = ftell(fp);
-    
+
     int c;
     int pos = 0;
-    
+
     fseek(fp, info->now.offset, SEEK_CUR);
     uint8_t* out = (uint8_t*)outbuf;
     while ((c=fgetc(fp))>0)

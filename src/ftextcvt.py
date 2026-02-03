@@ -44,7 +44,7 @@ def ftext2pretty(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
         if indicator=="○" or indicator=="●":
             text_offset = line.find(indicator, 1) + 1
             if text_offset < 0: raise ValueError(f"indicator {indicator} not closed, [lineno={i+1} line='{line}']")
-            elif line[text_offset]!=" ": 
+            elif line[text_offset]!=" ":
                 print(f"detect no ' ' [lineno={i} line='{line}']")
                 line = line[0: text_offset] + ' ' + line[text_offset:]
         lines[i] = line
@@ -56,13 +56,13 @@ def ftext2csv(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
     tag(org ○, now ●),addr,size,text
 
     """
-    
+
     ftexts1, ftexts2 = load_ftext(linesobj)
     assert(len(ftexts1) == len(ftexts2))
     sbufio = StringIO()
     wr = DictWriter(sbufio, ["tag", "addr", "size", "text"])
     wr.writeheader() # will automaticaly detect comma, use excel to write csv can not encode as utf8
-    for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)): 
+    for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
         wr.writerow({"tag": "org", "addr": hex(t1.addr), "size": hex(t1.size), "text": t1.text})
         wr.writerow({"tag": "now", "addr": hex(t2.addr), "size": hex(t2.size), "text": t2.text})
     lines = sbufio.getvalue().splitlines(True)
@@ -73,21 +73,21 @@ def ftext2csv(linesobj: Union[str, List[str]], outpath=None) -> List[str]:
 def ftext2json(ftextobj: Union[str, List[str]], outpath=None) -> List[str]:
     """
     convert ftext2 to json format
-    { 
+    {
         "org": {"addr": 0, "size": 0, "text": ""}
         "now" : {"addr": 0, "size": 0, "text": ""}
     }
     """
-    
+
     ftexts1, ftexts2 = load_ftext(ftextobj)
     assert(len(ftexts1) == len(ftexts2))
     jarr: List[Dict[str: str]] = []
     for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
         jarr.append({
-            "org": {"addr": hex(t1.addr), "size": hex(t1.size), "text": t1.text}, 
+            "org": {"addr": hex(t1.addr), "size": hex(t1.size), "text": t1.text},
             "now" : {"addr": hex(t2.addr), "size": hex(t2.size), "text": t2.text}
         })
-    
+
     jstr = json.dumps(jarr, ensure_ascii=False, indent=2)
     if outpath: writebytes(outpath, jstr.encode("utf-8"))
     return jstr.splitlines(True)
@@ -103,14 +103,14 @@ def ftext2paratranz(ftextobj: Union[str, List[str]], outpath=None, width_index =
         }
     ]
     """
-    
+
     ftexts1, ftexts2 = load_ftext(ftextobj)
     assert(len(ftexts1) == len(ftexts2))
-    
+
     width_num, width_addr, width_size = width_index
     keypattern = "{num:0%dd}|{addr:0%dX}|{size:0%dX}" % (width_num, width_addr, width_size)
     trans_method = PARATRANZ_CONFIG["trans"]
-    
+
     jarr: List[Dict[str: str]] = []
     for i, (t1, t2) in enumerate(zip(ftexts1, ftexts2)):
         text1, text2 = t1.text, t2.text
@@ -125,12 +125,12 @@ def ftext2paratranz(ftextobj: Union[str, List[str]], outpath=None, width_index =
             if text2 != "": stage = 1
 
         jarr.append({
-            "key":  keypattern.format(num=i, addr=t1.addr, size=t1.size), 
-            "original" : text1, 
+            "key":  keypattern.format(num=i, addr=t1.addr, size=t1.size),
+            "original" : text1,
             "translation" : text2,
             "stage" : stage
         })
-    
+
     jstr = json.dumps(jarr, ensure_ascii=False, indent=2)
     if outpath: writebytes(outpath, jstr.encode("utf-8"))
     return jstr.splitlines(True)
@@ -138,7 +138,7 @@ def ftext2paratranz(ftextobj: Union[str, List[str]], outpath=None, width_index =
 @filter_loadfiles([(0, "utf-8")])
 def ftext2docx(linesobj: Union[str, List[str]], outpath=None) -> Document:
     """
-    if this function compiled by nuitka, 
+    if this function compiled by nuitka,
     it needs default.docx file in ./docx/templates
     """
 
@@ -194,7 +194,7 @@ def paratranz2ftext(binobj: Union[str, List[str]], outpath=None) -> List[str]:
     for i, t in enumerate(json.loads(binobj)):
         text1, text2 = t["original"], t["translation"]
         k1, k2, k3 = t["key"].split("|")
-        if trans_method == "none": 
+        if trans_method == "none":
             text2 = text1
         elif trans_method == "diff":
             if text2 == "" : text2 = text1
@@ -211,7 +211,7 @@ def docx2ftext(docxobj, outpath=None) -> List[str]:
     document = Document(docxobj)
     # text is the whole text, p.run are every str in styles
     for p in document.paragraphs:
-        line = p.text.rstrip('\n').rstrip('\r') 
+        line = p.text.rstrip('\n').rstrip('\r')
         lines.append(line + '\n')
     if outpath: writebytes(outpath, writelines(lines))
     return lines
@@ -236,7 +236,7 @@ def cli(cmdstr=None):
         else: flag = True
         if not flag: return
         raise NotImplementedError(f"convert not support {inpath_ext}->{outpath_ext}")
-    
+
     def cmd_split():
         outbase = os.path.splitext(args.outpath)[0]
         ftexts1, ftexts2 = load_ftext(args.inpath)
@@ -248,7 +248,7 @@ def cli(cmdstr=None):
             outpath = outbase + f"_{i}.txt"
             s = slice(i*nftexteach, min((i+1)*nftexteach, nftextall))
             save_ftext(ftexts1[s], ftexts2[s], outpath)
-    
+
     def cmd_merge():
         nfile = args.merge
         if nfile == 0:  inpaths = glob(args.inpath)

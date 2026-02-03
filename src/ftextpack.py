@@ -4,7 +4,7 @@ __description__ = f"""
 A flexble format with low memory implementation
     v{__version__}, developed by devseed
 
-    use ftextpack.h to load dynamicly    
+    use ftextpack.h to load dynamicly
 """
 
 import os
@@ -28,7 +28,7 @@ except ImportError:
 # ftextpack functions
 class ftextpack_textinfo_t(Structure):
     _fields_ = [
-        ('hash', c_uint32), 
+        ('hash', c_uint32),
         ('offset', c_uint32),
         ('addr', c_uint32),
         ('size', c_uint32)
@@ -47,8 +47,8 @@ class ftextpack_info_t(Structure):
 
 class ftextpack_index_t(Structure):
     _fields_ = [
-        ('magic', c_char * 4), 
-        ('count', c_uint32), 
+        ('magic', c_char * 4),
+        ('count', c_uint32),
         ('offset', c_uint32),
         ('reserved', c_uint32),
         ('info', ftextpack_info_t * 1)
@@ -63,10 +63,10 @@ class Fpack:
     content: bytes = b""
 
 def pack_ftexts(binobjs, ftextobjs,
-        outobj, encoding="utf8", tblobj=None, *, text_noeval=False, 
-        text_replace=None, bytes_fallback=None, pack_sort="hash", 
-        pack_org=False, pack_nodup=False, pack_compact=False, 
-        f_before: Callable[[bytes, ftext_t], str] = None, 
+        outobj, encoding="utf8", tblobj=None, *, text_noeval=False,
+        text_replace=None, bytes_fallback=None, pack_sort="hash",
+        pack_org=False, pack_nodup=False, pack_compact=False,
+        f_before: Callable[[bytes, ftext_t], str] = None,
         f_after: Callable[[bytes, memoryview, bytes, ftext_t], bytes] = None) -> Fpack:
 
     def _load_org(t: ftext_t, srcdata: bytes, crcmap) -> ftextpack_textinfo_t:
@@ -74,7 +74,7 @@ def pack_ftexts(binobjs, ftextobjs,
         textbytes = srcdata[t.addr: t.addr+t.size]
         tcrc = zlib.crc32(textbytes)
         if tcrc in crcmap and pack_nodup:
-            logging.info(f"dropdup [crc=0x{tcrc:x} addr=0x{t.ddr:x} size=0x{t.size:x} text='{t.text}]'") 
+            logging.info(f"dropdup [crc=0x{tcrc:x} addr=0x{t.ddr:x} size=0x{t.size:x} text='{t.text}]'")
             return None
         if pack_org: start = bufio.tell(); bufio.write(textbytes); bufio.write(b'\x00')
         tmp = struct.pack("4I", tcrc, start, t.addr, t.size)
@@ -94,7 +94,7 @@ def pack_ftexts(binobjs, ftextobjs,
         bufio.write(encbytes)
         bufio.write(b'\x00')
         return textinfo
-    
+
     @filter_loadfiles([1])
     def _load_pair(ftextobj, binobj) -> List[ftextpack_info_t]:
         ftexts1, ftexts2 = load_ftext(ftextobj)
@@ -111,13 +111,13 @@ def pack_ftexts(binobjs, ftextobjs,
             infos.append(info)
 
     def save_fpack(fpack: Fpack, outobj, pack_compact=False) -> None:
-        fp = outobj if type(outobj)!=str else BytesIO() 
+        fp = outobj if type(outobj)!=str else BytesIO()
         start = fp.tell()
         index, infos, content =fpack.index, fpack.infos, fpack.content
         fp.write(index)
         fp.seek(-sizeof(ftextpack_info_t), 1)
         for info in infos:
-            if pack_compact: 
+            if pack_compact:
                 tmp = info.org.hash, info.now.offset, info.org.addr, info.now.size
                 fp.write(struct.pack("<4I", *tmp))
             else: fp.write(info)
@@ -134,7 +134,7 @@ def pack_ftexts(binobjs, ftextobjs,
     enc = tbl if tbl else encoding
     enc_error = bytes_fallback if tbl else ("ignore" if bytes_fallback else "strict")
     text_replace = text_replace if text_replace else dict()
-    
+
     # load files
     if type(ftextobjs) == str:
         _pattern = os.path.join(ftextobjs, "*.txt")
@@ -148,7 +148,7 @@ def pack_ftexts(binobjs, ftextobjs,
     if pack_sort=="hash": infos.sort(key = lambda x: x.org.hash)
     elif pack_sort == "addr": infos.sort(key = lambda x: (x.org.addr<<32) + x.org.size)
     else: raise ValueError(f"unknow sorby type {pack_sort}")
-    
+
     # make header
     n = len(infos)
     index = ftextpack_index_t()
@@ -177,7 +177,7 @@ def cli(cmdstr=None):
             outpaths = [args.outpath if args.outpath!="" else None]
         n = min(len(binpaths), len(ftextpaths), len(outpaths))
         return binpaths, ftextpaths, outpaths, n
-    
+
     def filter_cfgs(args):
         tbl = load_tbl(args.tbl)
         text_replace = dict((t[0], t[1]) for t in  args.text_replace) if args.text_replace else None
@@ -190,27 +190,27 @@ def cli(cmdstr=None):
         tbl, text_replace, bytes_fallback = filter_cfgs(args)
         for i, (binpath, ftextpath, outpath) in enumerate(zip(binpaths, ftextpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [binpath={binpath} ftextpath={ftextpath} outpath={outpath}]")
-            pack_ftexts(binpath, ftextpath, outpath, 
-                encoding=args.encoding, tblobj=tbl, text_noeval=args.text_noeval, 
-                text_replace=text_replace, bytes_fallback=bytes_fallback, 
-                pack_sort=args.pack_sort, pack_org=args.pack_org, 
+            pack_ftexts(binpath, ftextpath, outpath,
+                encoding=args.encoding, tblobj=tbl, text_noeval=args.text_noeval,
+                text_replace=text_replace, bytes_fallback=bytes_fallback,
+                pack_sort=args.pack_sort, pack_org=args.pack_org,
                 pack_nodup=args.pack_nodup, pack_compact=args.pack_compact)
 
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument("binpath", help="bin file or dir")
     parser.add_argument("ftextpath", help="ftext file or dir")
     parser.add_argument("-o", "--outpath", default="data.fp01")
-    parser.add_argument("--batch", action="store_true", 
+    parser.add_argument("--batch", action="store_true",
         help="use batch mode, the binpath, ftextpath, outpath should be the list file")
     parser.add_argument("-e", "--encoding", default='utf-8', help="use encoding for packing text")
     parser.add_argument("-t", "--tbl", default=None, help="use custome tbl for packing text")
-    parser.add_argument("-r", "--text_replace", default=None, type=str, 
+    parser.add_argument("-r", "--text_replace", default=None, type=str,
         action='append', nargs=2, metavar=('src', 'dst'), help="replace the text before encoding")
-    parser.add_argument("--log_level", default="info", help="set log level", 
+    parser.add_argument("--log_level", default="info", help="set log level",
         choices=("none", "critical", "error", "warning", "info", "debug"))
     parser.add_argument("--text_noeval", action="store_true",  help="disable eval like {{b'\x00'}}")
     parser.add_argument('--bytes_fallback', type=str, default=None, help="bytes after tbl failed")
-    parser.add_argument("--pack_sort", default="hash", 
+    parser.add_argument("--pack_sort", default="hash",
         choices=("hash", "addr"), help="sorted text after packing")
     parser.add_argument("--pack_org", action='store_true', help="pack origin data for reference")
     parser.add_argument('--pack_compact', action='store_true', help='use compact structure for packing')
@@ -218,7 +218,7 @@ def cli(cmdstr=None):
 
     args = parser.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
-    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()),
                         format="%(levelname)s:%(funcName)s: %(message)s")
     cmd_pack(args)
 

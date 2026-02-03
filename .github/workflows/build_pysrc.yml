@@ -1,7 +1,7 @@
 name: build_pysrc
 on:
   push: {tags:  ['v*'] } # Push events to matching v*, i.e. v1.0, v20.15.10
-  pull_request: 
+  pull_request:
 
 permissions:
   contents: write
@@ -44,10 +44,10 @@ jobs:
         pip install python-docx # ftextcvt
         pip install numpy numba pillow
         pip install scikit-learn
-    
+
     - name: build pysrc
       run: |
-        chmod +x project/pysrc_all/*.sh 
+        chmod +x project/pysrc_all/*.sh
         bash project/pysrc_all/build_pysrc.sh
         bash project/pysrc_all/test_pydep.sh
         cd project/pysrc_all

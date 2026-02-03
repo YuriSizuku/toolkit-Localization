@@ -1,7 +1,7 @@
 test_libtext()
 {
     echo "## test libtext insert"
-    python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all//build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你" 
+    python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all//build/COM001_rebuild.bin --log_level info --bytes_padding "2020" --bytes_fallback "815A" --insert_shorter --insert_longer  --text_replace "季" "季季季" --text_replace "煌びやかな光" "你你你你你"
     python src/libtext.py insert test/sample/COM001 test/sample/COM001.txt --refer test/sample/COM001 -t test/sample/COM001.tbl -o project/pysrc_all//build/COM001_rebuild.bin.gz --log_level info
     python src/libtext.py insert --batch "test/sample;COM001" "test/sample;COM001.txt" --refer "test/sample;COM001"  -t test/sample/COM001.tbl -o "project/pysrc_all/build;COM001_rebuild.bin" --bytes_padding "2020" --bytes_fallback "815A"
 

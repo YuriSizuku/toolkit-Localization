@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __version__ = "0.3.1"
 __description__ = f"""
-A image tool (remake) for image encoding or decoding, 
+A image tool (remake) for image encoding or decoding,
 all the intermediate format is rgba, index in alpha channel
     v{__version__}, develope by devseed
 """
@@ -58,9 +58,9 @@ def make_swizzle_pattern(tileorder) -> np.ndarray:
 def make_tile_pattern(tilew, tileh, ntiletotal=4, ntilerow=2) -> np.ndarray:
     """
 `   make tilehxtilew swizzle, for example 3 tile (2, 4),
-        0	1	2	3  8  9  10 11 
+        0	1	2	3  8  9  10 11
         4	5	6	7  12 13 14 15
-        16	17	18	19 -1 -1 -1 -1 
+        16	17	18	19 -1 -1 -1 -1
         20	21	22	23 -1 -1 -1 -1
         the square side is 2^n`
     """
@@ -70,7 +70,7 @@ def make_tile_pattern(tilew, tileh, ntiletotal=4, ntilerow=2) -> np.ndarray:
     for tileidx in prange(ntiletotal):
         for tiley in prange(tileh):
             for tilex in prange(tilew):
-                stride_tile = w // tilew                  
+                stride_tile = w // tilew
                 x = (tileidx % stride_tile) * tilew + tilex
                 y = (tileidx // stride_tile) * tileh + tiley
                 res[y, x] = tileidx * tilew * tileh + tiley * tilew + tilex
@@ -88,12 +88,12 @@ def find_palette(palette, pixel):
     find the most close palette index of pixel
     :return: index in palette
     """
-    
+
     idx, dmin = uint8(0),  0x7FFFFFFF
     tmp = np.zeros_like(pixel, dtype=np.int32)
     for i in range(palette.shape[0]):
         d = 0
-        for j in range(tmp.shape[0]): 
+        for j in range(tmp.shape[0]):
             t = pixel[j] - palette[i][j]
             d += np.abs(t) # numba not support np.dot on int
             if d > dmin: break
@@ -178,19 +178,19 @@ def decode_pixel(data, bpp, offset, i, pixel):
         n = 4 if bpp > 24 else 3
         pixel[:n] = data[bytecur: bytecur+n]
 
-@njit([(void)(uint8[:], int32, int32, int32, int32, 
+@njit([(void)(uint8[:], int32, int32, int32, int32,
         readonly(uint8, 2), readonly(uint8, 3))], parallel=True)
 def encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palette, img):
     """
     multi tiles -> implement
     """
-    
+
     h, w, c = img.shape[0], img.shape[1], img.shape[2]
     n = tiledata.shape[0]//tilesize
     for tileidx in prange(n):
         for tiley in range(tileh):
             for tilex in range(tilew): # to avoid raceing in encode <8bpp
-                stride_tile = w // tilew                  
+                stride_tile = w // tilew
                 x = (tileidx % stride_tile) * tilew + tilex
                 y = (tileidx // stride_tile) * tileh + tiley
                 addr = tileidx * tilesize
@@ -202,34 +202,34 @@ def encode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palette, img):
                     elif tilebpp==16: pixel[2], pixel[3] = d&0xff, d>>8
                 else: pixel = img[y][x]
                 encode_pixel(tiledata, tilebpp, addr, pixeli, pixel)
-    
-@njit([(void)(readonly(uint8, 1), int32, int32, int32, int32, 
+
+@njit([(void)(readonly(uint8, 1), int32, int32, int32, int32,
         readonly(uint8, 2), uint8[:, :, :])], parallel=True)
 def decode_tiles(tiledata, tilesize, tilew, tileh, tilebpp, palette, img):
     """
     img -> multi tiles implement
     """
-        
+
     h, w, c = img.shape[0], img.shape[1], img.shape[2]
     n = tiledata.shape[0]//tilesize
     for tileidx in prange(n):
         for tiley in prange(tileh):
             for tilex in prange(tilew):
-                stride_tile = w // tilew                  
+                stride_tile = w // tilew
                 x = (tileidx % stride_tile) * tilew + tilex
                 y = (tileidx // stride_tile) * tileh + tiley
                 addr = tileidx * tilesize
                 pixeli =  tiley * tilew + tilex
                 pixel = img[y][x]
                 decode_pixel(tiledata, tilebpp, addr, pixeli, pixel)
-                if palette.shape[0] > 1: 
+                if palette.shape[0] > 1:
                     d = pixel[3]
                     if tilebpp==16: d = (d<<8) + pixel[2]
                     pixel[:] = palette[d]
 
 #  wrappers for image convert
 @filter_loadimages((0, "RGBA"))
-def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, *, 
+def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=None, *,
         palette: np.ndarray=None, ntiletotal=0) -> np.ndarray:
     """
     encode tile image wrapper
@@ -247,7 +247,7 @@ def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=
     if ntiletotal> 0: n = min(n, ntiletotal)
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
     tiledata = np.zeros(n*tileinfo.size, dtype=np.uint8)
-    
+
     # init image and decode
     logging.info(f"image {img.shape} -> {n} {repr(tileinfo)}")
     encode_tiles(tiledata, tileinfo.size, tileinfo.w, tileinfo.h, tileinfo.bpp, palette, img)
@@ -256,7 +256,7 @@ def encode_tile_image(imgobj: Union[str, np.ndarray], tileinfo: tile_t, outpath=
     return tiledata
 
 @filter_loadfiles(0)
-def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, outpath=None, *, 
+def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, outpath=None, *,
         palette: np.ndarray=None, ntiletotal=0, ntilerow=64) -> np.ndarray:
     """
     decode tile image wrapper
@@ -274,7 +274,7 @@ def decode_tile_image(binobj: Union[str, bytes, np.ndarray], tileinfo: tile_t, o
     if palette is None: palette = np.zeros((1, 4), dtype=np.uint8)
     if type(binobj) == np.ndarray: tiledata = binobj[:n*tileinfo.size]
     else: tiledata = np.frombuffer(binobj, dtype=np.uint8, count=n*tileinfo.size)
-    
+
     # init image and decode
     imgw, imgh = tileinfo.w * ntilerow, tileinfo.h * math.ceil(n/ntilerow)
     img = np.zeros([imgh, imgw, 4], dtype='uint8')
@@ -292,7 +292,7 @@ def cli(cmdstr=None):
         else: inpaths, outpaths = [args.inpath], [args.outpath]
         n = min(len(inpaths), len(outpaths))
         return inpaths, outpaths, n
-    
+
     def filter_cfgs(args):
         tileinfo = tile_t(args.tilew, args.tileh,args.tilebpp, args.tilesize)
         palette = bytes.fromhex(args.palette) if args.palette else None
@@ -306,7 +306,7 @@ def cli(cmdstr=None):
         for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
             if args.format == "tile":
-                decode_tile_image(inpath, tileinfo, outpath, 
+                decode_tile_image(inpath, tileinfo, outpath,
                     palette=palette, ntiletotal=args.ntiletotal, ntilerow=args.ntilerow)
 
     def cmd_encode(args):
@@ -316,7 +316,7 @@ def cli(cmdstr=None):
         for i, (inpath, outpath) in enumerate(zip(inpaths, outpaths)):
             if args.batch: logging.info(f"batch {i+1}/{n} [inpath={inpath} outpath={outpath}]")
             if args.format == "tile":
-                encode_tile_image(inpath, tileinfo, outpath, 
+                encode_tile_image(inpath, tileinfo, outpath,
                     palette=palette, ntiletotal=args.ntiletotal)
 
     p = argparse.ArgumentParser(description=__description__)
@@ -325,7 +325,7 @@ def cli(cmdstr=None):
     p_decode = p2.add_parser("decode", help="decode bin to image")
     for t in [p_encode, p_decode]:
         t.add_argument("-o", "--outpath", default="out")
-        t.add_argument("--log_level", default="info", help="set log level", 
+        t.add_argument("--log_level", default="info", help="set log level",
             choices=("none", "critical", "error", "warning", "info", "debug"))
         t.add_argument("--batch", action="store_true", help="batch mode on inpath, outpath")
         t.add_argument("--format", default="tile", choices=["tile"], help="output format")
@@ -343,7 +343,7 @@ def cli(cmdstr=None):
 
     args = p.parse_args(cmdstr.split(' ') if cmdstr else None)
     loglevel = args.log_level if hasattr(args, "log_level") else "info"
-    logging.basicConfig(level=logging.getLevelName(loglevel.upper()), 
+    logging.basicConfig(level=logging.getLevelName(loglevel.upper()),
                     format="%(levelname)s:%(funcName)s: %(message)s")
     if hasattr(args, "handler"): args.handler(args)
     else: p.print_help()

@@ -1,4 +1,4 @@
-/* 
+/*
 use this script to view and redirect something
 such as chcp codepage, replace font, replace path by pattern
     v0.1, developed by devseed
@@ -8,19 +8,19 @@ const VERSION = "0.1";
 
 function chcp(codepage=-1, mute_log=false)
 {
-    const api = new ApiResolver("module"); 
+    const api = new ApiResolver("module");
     const MultiByteToWideChar  = new NativeFunction(
         api.enumerateMatches(
-        'exports:*!MultiByteToWideChar')[0].address, 'int', ['uint', 'uint32','pointer', 'int', 'pointer','int']); 
+        'exports:*!MultiByteToWideChar')[0].address, 'int', ['uint', 'uint32','pointer', 'int', 'pointer','int']);
     const WideCharToMultiByte  = new NativeFunction(
         api.enumerateMatches(
-        'exports:*!WideCharToMultiByte')[0].address, 
-        'int', ['uint', 'uint32', 'pointer', 
-        'int', 'pointer', 'int', 'pointer', 'pointer']); 
+        'exports:*!WideCharToMultiByte')[0].address,
+        'int', ['uint', 'uint32', 'pointer',
+        'int', 'pointer', 'int', 'pointer', 'pointer']);
     console.log('MultiByteToWideChar at'+ MultiByteToWideChar);
     console.log('WideCharToMultiByte at'+ WideCharToMultiByte);
     ;
-    
+
     var lpMultiByteStr, lpWideCharStr;
     Interceptor.attach(MultiByteToWideChar, {
         onEnter: function (args, state) {
@@ -50,8 +50,8 @@ function chcp(codepage=-1, mute_log=false)
 
             if(!mute_log)
             {
-                console.log(ret_addr.toString(16), 
-                    "MultiByteToWideChar", retval, 
+                console.log(ret_addr.toString(16),
+                    "MultiByteToWideChar", retval,
                     lpWideCharStr.readUtf16String());
             }
         }
@@ -85,8 +85,8 @@ function chcp(codepage=-1, mute_log=false)
 
             if(!mute_log)
             {
-                console.log(ret_addr.toString(16), 
-                    "WideCharToMultiByte", retval, 
+                console.log(ret_addr.toString(16),
+                    "WideCharToMultiByte", retval,
                     lpWideCharStr.readUtf16String());
             }
         }
@@ -95,33 +95,33 @@ function chcp(codepage=-1, mute_log=false)
 
 function redirect_font(charset, facename, mute_log=false)
 {
-    const api = new ApiResolver("module"); 
+    const api = new ApiResolver("module");
     const CreateFontA  = new NativeFunction(
         api.enumerateMatches(
         'exports:*!CreateFontA')[0].address, 'pointer',
          ['int', 'int', 'int', 'int', 'int',
         'uint32', 'uint32','uint32','uint32',
-        'uint32','uint32','uint32','uint32', 'pointer']); 
+        'uint32','uint32','uint32','uint32', 'pointer']);
     const CreateFontW  = new NativeFunction(
         api.enumerateMatches(
         'exports:*!CreateFontW')[0].address, 'pointer',
             ['int', 'int', 'int', 'int', 'int',
         'uint32', 'uint32','uint32','uint32',
-        'uint32','uint32','uint32','uint32', 'pointer']); 
+        'uint32','uint32','uint32','uint32', 'pointer']);
     const CreateFontIndirectA  = new NativeFunction(
         api.enumerateMatches(
-        'exports:*!CreateFontIndirectA')[0].address, 
-        'pointer', ['pointer']); 
+        'exports:*!CreateFontIndirectA')[0].address,
+        'pointer', ['pointer']);
     const CreateFontIndirectW  = new NativeFunction(
         api.enumerateMatches(
-        'exports:*!CreateFontIndirectW')[0].address, 
-        'pointer', ['pointer']); 
+        'exports:*!CreateFontIndirectW')[0].address,
+        'pointer', ['pointer']);
 
     console.log('CreateFontA at'+ CreateFontA);
     console.log('CreateFontW at'+ CreateFontW);
     console.log('CreateFontIndirectA at'+ CreateFontIndirectA);
     console.log('CreateFontIndirectW at'+ CreateFontIndirectW);
-    
+
     Interceptor.attach(CreateFontA, {
         onEnter: function(args)
         {
@@ -130,10 +130,10 @@ function redirect_font(charset, facename, mute_log=false)
             args[13].writeAnsiString(facename);
             if(!mute_log)
             {
-                console.log("CreateFontA charset", 
-                    charset_before.toString(16), "->", 
+                console.log("CreateFontA charset",
+                    charset_before.toString(16), "->",
                     charset.toString(16));
-                console.log("CreateFontA facename", 
+                console.log("CreateFontA facename",
                     facename_before, "->", facename);
             }
         }
@@ -147,10 +147,10 @@ function redirect_font(charset, facename, mute_log=false)
             args[13].writeUtf16String(facename);
             if(!mute_log)
             {
-                console.log("CreateFontW charset", 
-                    charset_before.toString(16), "->", 
+                console.log("CreateFontW charset",
+                    charset_before.toString(16), "->",
                     charset.toString(16));
-                console.log("CreateFontW facename", 
+                console.log("CreateFontW facename",
                     facename_before, "->", facename);
             }
         }
@@ -161,7 +161,7 @@ function redirect_font(charset, facename, mute_log=false)
         onEnter: function(args)
         {
             var lplf = args[0];
-            
+
             var p = lplf.add(0x17);
             var charset_before = p.readU8();
             p.writeU8(charset);
@@ -171,10 +171,10 @@ function redirect_font(charset, facename, mute_log=false)
             p.writeAnsiString(facename);
             if(!mute_log)
             {
-                console.log("CreateFontIndirectA charset", 
-                    charset_before.toString(16), "->", 
+                console.log("CreateFontIndirectA charset",
+                    charset_before.toString(16), "->",
                     charset.toString(16));
-                console.log("CreateFontIndirectA facename", 
+                console.log("CreateFontIndirectA facename",
                     facename_before, "->", facename);
             }
         }
@@ -184,7 +184,7 @@ function redirect_font(charset, facename, mute_log=false)
         onEnter: function(args)
         {
             var lplf = args[0];
-            
+
             var p = lplf.add(0x17);
             var charset_before = p.readU8();
             p.writeU8(charset);
@@ -194,10 +194,10 @@ function redirect_font(charset, facename, mute_log=false)
             p.writeUtf16String(facename);
             if(!mute_log)
             {
-                console.log("CreateFontIndirectW charset", 
-                    charset_before.toString(16), "->", 
+                console.log("CreateFontIndirectW charset",
+                    charset_before.toString(16), "->",
                     charset.toString(16));
-                console.log("CreateFontIndirectW facename", 
+                console.log("CreateFontIndirectW facename",
                     facename_before, "->", facename);
             }
         }
@@ -208,12 +208,12 @@ function redirect_path(patterns, targets, mute_log=false)
 {
     const api = new ApiResolver("module");
     const CreateFileA = new NativeFunction(
-        api.enumerateMatches('exports:*!CreateFileA')[0].address, 'pointer', 
-        ['pointer', 'uint32', 'uint32', 'pointer', 'uint32', 'uint32', 'uint32']); 
+        api.enumerateMatches('exports:*!CreateFileA')[0].address, 'pointer',
+        ['pointer', 'uint32', 'uint32', 'pointer', 'uint32', 'uint32', 'uint32']);
     const CreateFileW = new NativeFunction(
-        api.enumerateMatches('exports:*!CreateFileW')[0].address, 'pointer', 
-        ['pointer', 'uint32', 'uint32', 'pointer', 'uint32', 'uint32', 'uint32']); 
-    
+        api.enumerateMatches('exports:*!CreateFileW')[0].address, 'pointer',
+        ['pointer', 'uint32', 'uint32', 'pointer', 'uint32', 'uint32', 'uint32']);
+
     var g_fargs = []
     Interceptor.attach(CreateFileW, {
         onEnter: function(args)
@@ -233,7 +233,7 @@ function redirect_path(patterns, targets, mute_log=false)
         },
         onLeave: function(retval)
         {
-            
+
             var ret_addr = "NOT_DETECTED"
             if(this.context.rsp!=undefined)
             {
@@ -278,17 +278,17 @@ function redirect_path(patterns, targets, mute_log=false)
             {
                 ret_addr = this.context.esp.readPointer();
             }
-             
+
             var filepath = g_fargs[0];
             if(retval.toInt32()!=0 && !mute_log)
             {
-                console.log(ret_addr,  "CreateFileA", 
+                console.log(ret_addr,  "CreateFileA",
                     filepath,"hFile=" + retval);
             }
             g_fargs = []
         }
     })
-    
+
 }
 
 chcp(932, true); // cp932 sjis, cp936 gb2312
